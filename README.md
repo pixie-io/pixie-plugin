@@ -16,7 +16,7 @@ Plugins should be submitted as a pull request to this repository. The pull reque
 ## Plugin Format 
 
 Plugins should be added as a directory within `/plugins` directory. The name of the directory should match the plugin's ID. For example: `/plugins/cool-plugin` for a plugin with the ID `cool-plugin`.
-A plugin consists for the following:
+A plugin consists of the following:
 
 ### plugin.yaml
 
@@ -55,3 +55,14 @@ The presetScripts object should adhere to the following format:
 | script            | string   | true         | The PxL script.                                                                                                                       |
 | defaultFrequencyS | int      | false        | The default interval, in seconds, at which the script should be rerun. The user has the ability to change this interval if they wish. |
 
+### Testing a Plugin
+
+Your plugin should be manually tested prior to submission.
+
+1. Create a fork of this repo.
+2. Add the necessary files for your plugin (See [Plugin Format](#plugin-format) above).
+3. Fork the official [Pixie repo](https://github.com/pixie-io/pixie).
+4. Update `k8s/cloud/public/plugin_db_updater_job.yaml`'s `PL_PLUGIN_REPO` environment variable to point to your plugin repo fork.
+5. Deploy self-hosted Pixie Cloud by following this [guide](https://docs.px.dev/installing-pixie/install-guides/self-hosted-pixie/). These steps will automatically pull your plugin into Pixie Cloud's database.
+6. Verify that your plugin appears in the `Plugins` page in the Admin UI.
+7. Deploy a Vizier, enable the plugin, and validate that behavior is as expected.
