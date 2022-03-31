@@ -15,7 +15,7 @@ Plugins should be submitted as a pull request to this repository. The pull reque
 
 ## Plugin Format 
 
-Plugins should be added as a directory within `/plugins` directory. The name of the directory should match the plugin's ID. For example: `/plugins/foobar` for a plugin with the ID `foobar`.
+Plugins should be added as a directory within `/plugins` directory. The name of the directory should match the plugin's ID. For example: `/plugins/cool-plugin` for a plugin with the ID `cool-plugin`.
 A plugin consists for the following:
 
 ### plugin.yaml
