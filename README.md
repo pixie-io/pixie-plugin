@@ -46,6 +46,8 @@ This should be provided only if the plugin supports longterm data retention.
 | allowCustomExportURL | boolean           | false        | Let the user provide a custom export URL.                                                                                                                                                                                                                                 |
 | presetScripts        | object[]          | false        | A set of scripts, prewritten by the plugin provider, which they can use to provide extra functionality.                                                                                                                                                                   |
 
+*Note: We recommend that sensitive configuration fields, such as API keys, be scoped to only required permissions for writing to the datastore.*
+
 The presetScripts object should adhere to the following format:
 
 | **Field**         | **Type** | **Required** | **Description**                                                                                                                       |
