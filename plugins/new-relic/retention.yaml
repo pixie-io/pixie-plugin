@@ -1,0 +1,65 @@
+documentationURL: "https://docs.newrelic.com/"
+configurations:
+ api_key: "New Relic license key (see https://one.newrelic.com/api-keys)"
+defaultExportURL: "otlp.nr-data.net:443"
+allowCustomExportURL: true
+presetScripts:
+ - name: "http_metrics"
+   description: "This script sends HTTP metrics to New Relic's OTel endpoint."
+   script: |
+    #px:set max_output_rows_per_table=10000
+
+    import px
+    df = px.DataFrame(table='http_events', start_time='-10s')
+
+    df.container = df.ctx['container_name']
+    df.pod = df.ctx['pod']
+    df.service = df.ctx['service']
+    df.namespace = df.ctx['namespace']
+
+    df.status_code = df.resp_status
+
+    df = df.groupby(['status_code', 'pod', 'container','service', 'namespace']).agg(
+        latency_min=('latency', px.min),
+        latency_max=('latency', px.max),
+        latency_sum=('latency', px.sum),
+        latency_count=('latency', px.count),
+        time_=('time_', px.max),
+    )
+
+    df.latency_min = df.latency_min / 1000000
+    df.latency_max = df.latency_max / 1000000
+    df.latency_sum = df.latency_sum / 1000000
+
+    df.cluster_name = px.vizier_name()
+    df.cluster_id = px.vizier_id()
+    df.pixie = 'pixie'
+
+    # Write to UI if debugging
+    px.display(df)
+
+    px.export(
+      df, px.otel.Data(
+        resource={
+          'service.name': df.service,
+          'k8s.container.name': df.container,
+          'service.instance.id': df.pod,
+          'k8s.pod.name': df.pod,
+          'k8s.namespace.name': df.namespace,
+          'px.cluster.id': df.cluster_id,
+          'k8s.cluster.name': df.cluster_name,
+          'instrumentation.provider': df.pixie,
+        },
+        data=[
+          px.otel.metric.Summary(
+            name='http.server.duration',
+            count=df.latency_count,
+            sum=df.latency_sum,
+            quantile_values={
+              0.0: df.latency_min,
+              1.0: df.latency_max,
+            },
+        )],
+      ),
+    )
+   frequencyS: 10s
