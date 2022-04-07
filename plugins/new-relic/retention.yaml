@@ -1,6 +1,6 @@
 documentationURL: "https://docs.newrelic.com/"
 configurations:
- api_key: "New Relic license key (see https://one.newrelic.com/api-keys)"
+ api-key: "New Relic license key (see https://one.newrelic.com/api-keys)"
 defaultExportURL: "otlp.nr-data.net:443"
 allowCustomExportURL: true
 presetScripts:
