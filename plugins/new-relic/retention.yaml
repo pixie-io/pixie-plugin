@@ -10,6 +10,7 @@ presetScripts:
     #px:set max_output_rows_per_table=10000
 
     import px
+
     df = px.DataFrame(table='http_events', start_time='-10s')
 
     df.container = df.ctx['container_name']
@@ -60,6 +61,83 @@ presetScripts:
               1.0: df.latency_max,
             },
         )],
+      ),
+    )
+   defaultFrequencyS: 10
+ - name: "http_spans"
+   description: "This script sends HTTP span events (distributed tracing) to New Relic's OTel endpoint."
+   script: |
+    #px:set max_output_rows_per_table=1500
+
+    import px
+
+    df = px.DataFrame('http_events', start_time='-10s')
+
+    df.container = df.ctx['container_name']
+    df.pod = df.ctx['pod']
+    df.service = df.ctx['service']
+    df.namespace = df.ctx['namespace']
+
+    df = df.head(15000)
+    df.req_start_time = df.time_ - df.latency
+    df.parent_pod_id = px.ip_to_pod_id(df.remote_addr)
+    df.parent_service = px.pod_id_to_service_name(df.parent_pod_id)
+    df.parent_pod = px.pod_id_to_pod_name(df.parent_pod_id)
+    df.host = px.pluck(df.req_headers, 'Host')
+    df.req_url = df.host + df.req_path
+
+    df.user_agent = px.pluck(df.req_headers, 'User-Agent')
+    df.trace_id = px.pluck(df.req_headers, 'X-B3-TraceId')
+    df.span_id = px.pluck(df.req_headers, 'X-B3-SpanId')
+    df.parent_span_id = px.pluck(df.req_headers, 'X-B3-ParentSpanId')
+
+    # Strip out all but the actual path value from req_path
+    df.req_path = px.uri_recompose('', '', '', 0, px.pluck(px.uri_parse(df.req_path), 'path'), '', '')
+
+    # Replace any Hex IDS from the path with <id>
+    df.req_path = px.replace('/[a-fA-F0-9\-:]{6,}(/?)', df.req_path, '/<id>\\1')
+
+    df.cluster_name = px.vizier_name()
+    df.cluster_id = px.vizier_id()
+    df.pixie = 'pixie'
+
+    # Write to UI if debugging
+    px.display(df)
+
+    px.export(
+      df, px.otel.Data(
+        resource={
+          'service.name': df.service,
+          'k8s.container.name': df.container,
+          'service.instance.id': df.pod,
+          'k8s.pod.name': df.pod,
+          'k8s.namespace.name': df.namespace,
+          'pixie.cluster.id': df.cluster_id,
+          'k8s.cluster.name': df.cluster_name,
+          'instrumentation.provider': df.pixie,
+        },
+        data=[
+          px.otel.trace.Span(
+            name=df.req_path,
+            start_time=df.req_start_time,
+            end_time=df.time_,
+            trace_id=df.trace_id,
+            span_id=df.span_id,
+            parent_span_id=df.parent_span_id,
+            attributes={
+              # NOTE: the integration handles splitting of services.
+              'parent.service.name': df.parent_service,
+              'parent.k8s.pod.name': df.parent_pod,
+              'http.method': df.req_method,
+              'http.url': df.req_url,
+              'http.target': df.req_path,
+              'http.host': df.host,
+              # Attributes only accepts string values at the moment.
+              # 'http.status_code': df.resp_status,
+              'http.user_agent': df.user_agent,
+            },
+          ),
+        ],
       ),
     )
    defaultFrequencyS: 10
