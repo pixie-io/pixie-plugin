@@ -1,250 +1,250 @@
 documentationURL: "https://docs.newrelic.com/"
 configurations:
- api-key: "New Relic license key (see https://one.newrelic.com/api-keys)"
+  api-key: "New Relic license key (see https://one.newrelic.com/api-keys)"
 defaultExportURL: "otlp.nr-data.net:443"
 allowCustomExportURL: true
 presetScripts:
- - name: "http_metrics"
-   description: "This script sends HTTP metrics to New Relic's OTel endpoint."
-   script: |
-    #px:set max_output_rows_per_table=10000
+  - name: "http_metrics"
+    description: "This script sends HTTP metrics to New Relic's OTel endpoint."
+    script: |
+      #px:set max_output_rows_per_table=10000
 
-    import px
+      import px
 
-    df = px.DataFrame(table='http_events', start_time='-10s')
+      df = px.DataFrame(table='http_events', start_time='-10s')
 
-    df.container = df.ctx['container_name']
-    df.pod = df.ctx['pod']
-    df.service = df.ctx['service']
-    df.namespace = df.ctx['namespace']
+      df.container = df.ctx['container_name']
+      df.pod = df.ctx['pod']
+      df.service = df.ctx['service']
+      df.namespace = df.ctx['namespace']
 
-    df.status_code = df.resp_status
+      df.status_code = df.resp_status
 
-    df = df.groupby(['status_code', 'pod', 'container','service', 'namespace']).agg(
-        latency_min=('latency', px.min),
-        latency_max=('latency', px.max),
-        latency_sum=('latency', px.sum),
-        latency_count=('latency', px.count),
-        time_=('time_', px.max),
-    )
+      df = df.groupby(['status_code', 'pod', 'container','service', 'namespace']).agg(
+          latency_min=('latency', px.min),
+          latency_max=('latency', px.max),
+          latency_sum=('latency', px.sum),
+          latency_count=('latency', px.count),
+          time_=('time_', px.max),
+      )
 
-    df.latency_min = df.latency_min / 1000000
-    df.latency_max = df.latency_max / 1000000
-    df.latency_sum = df.latency_sum / 1000000
+      df.latency_min = df.latency_min / 1000000
+      df.latency_max = df.latency_max / 1000000
+      df.latency_sum = df.latency_sum / 1000000
 
-    df.cluster_name = px.vizier_name()
-    df.cluster_id = px.vizier_id()
-    df.pixie = 'pixie'
+      df.cluster_name = px.vizier_name()
+      df.cluster_id = px.vizier_id()
+      df.pixie = 'pixie'
 
-    # Write to UI if debugging
-    px.display(df)
+      # Write to UI if debugging
+      px.display(df)
 
-    px.export(
-      df, px.otel.Data(
-        resource={
-          'service.name': df.service,
-          'k8s.container.name': df.container,
-          'service.instance.id': df.pod,
-          'k8s.pod.name': df.pod,
-          'k8s.namespace.name': df.namespace,
-          'px.cluster.id': df.cluster_id,
-          'k8s.cluster.name': df.cluster_name,
-          'instrumentation.provider': df.pixie,
-        },
-        data=[
-          px.otel.metric.Summary(
-            name='http.server.duration',
-            count=df.latency_count,
-            sum=df.latency_sum,
-            quantile_values={
-              0.0: df.latency_min,
-              1.0: df.latency_max,
-            },
-        )],
-      ),
-    )
-   defaultFrequencyS: 10
- - name: "http_spans"
-   description: "This script sends HTTP span events (distributed tracing) to New Relic's OTel endpoint."
-   script: |
-    #px:set max_output_rows_per_table=1500
+      px.export(
+        df, px.otel.Data(
+          resource={
+            'service.name': df.service,
+            'k8s.container.name': df.container,
+            'service.instance.id': df.pod,
+            'k8s.pod.name': df.pod,
+            'k8s.namespace.name': df.namespace,
+            'px.cluster.id': df.cluster_id,
+            'k8s.cluster.name': df.cluster_name,
+            'instrumentation.provider': df.pixie,
+          },
+          data=[
+            px.otel.metric.Summary(
+              name='http.server.duration',
+              count=df.latency_count,
+              sum=df.latency_sum,
+              quantile_values={
+                0.0: df.latency_min,
+                1.0: df.latency_max,
+              },
+          )],
+        ),
+      )
+    defaultFrequencyS: 10
+  - name: "http_spans"
+    description: "This script sends HTTP span events (distributed tracing) to New Relic's OTel endpoint."
+    script: |
+      #px:set max_output_rows_per_table=1500
 
-    import px
+      import px
 
-    df = px.DataFrame('http_events', start_time='-10s')
+      df = px.DataFrame('http_events', start_time='-10s')
 
-    df.container = df.ctx['container_name']
-    df.pod = df.ctx['pod']
-    df.service = df.ctx['service']
-    df.namespace = df.ctx['namespace']
+      df.container = df.ctx['container_name']
+      df.pod = df.ctx['pod']
+      df.service = df.ctx['service']
+      df.namespace = df.ctx['namespace']
 
-    df = df.head(15000)
-    df.req_start_time = df.time_ - df.latency
-    df.parent_pod_id = px.ip_to_pod_id(df.remote_addr)
-    df.parent_service = px.pod_id_to_service_name(df.parent_pod_id)
-    df.parent_pod = px.pod_id_to_pod_name(df.parent_pod_id)
-    df.host = px.pluck(df.req_headers, 'Host')
-    df.req_url = df.host + df.req_path
+      df = df.head(15000)
+      df.req_start_time = df.time_ - df.latency
+      df.parent_pod_id = px.ip_to_pod_id(df.remote_addr)
+      df.parent_service = px.pod_id_to_service_name(df.parent_pod_id)
+      df.parent_pod = px.pod_id_to_pod_name(df.parent_pod_id)
+      df.host = px.pluck(df.req_headers, 'Host')
+      df.req_url = df.host + df.req_path
 
-    df.user_agent = px.pluck(df.req_headers, 'User-Agent')
-    df.trace_id = px.pluck(df.req_headers, 'X-B3-TraceId')
-    df.span_id = px.pluck(df.req_headers, 'X-B3-SpanId')
-    df.parent_span_id = px.pluck(df.req_headers, 'X-B3-ParentSpanId')
+      df.user_agent = px.pluck(df.req_headers, 'User-Agent')
+      df.trace_id = px.pluck(df.req_headers, 'X-B3-TraceId')
+      df.span_id = px.pluck(df.req_headers, 'X-B3-SpanId')
+      df.parent_span_id = px.pluck(df.req_headers, 'X-B3-ParentSpanId')
 
-    # Strip out all but the actual path value from req_path
-    df.req_path = px.uri_recompose('', '', '', 0, px.pluck(px.uri_parse(df.req_path), 'path'), '', '')
+      # Strip out all but the actual path value from req_path
+      df.req_path = px.uri_recompose('', '', '', 0, px.pluck(px.uri_parse(df.req_path), 'path'), '', '')
 
-    # Replace any Hex IDS from the path with <id>
-    df.req_path = px.replace('/[a-fA-F0-9\-:]{6,}(/?)', df.req_path, '/<id>\\1')
+      # Replace any Hex IDS from the path with <id>
+      df.req_path = px.replace('/[a-fA-F0-9\-:]{6,}(/?)', df.req_path, '/<id>\\1')
 
-    df.cluster_name = px.vizier_name()
-    df.cluster_id = px.vizier_id()
-    df.pixie = 'pixie'
+      df.cluster_name = px.vizier_name()
+      df.cluster_id = px.vizier_id()
+      df.pixie = 'pixie'
 
-    # Write to UI if debugging
-    px.display(df)
+      # Write to UI if debugging
+      px.display(df)
 
-    px.export(
-      df, px.otel.Data(
-        resource={
-          'service.name': df.service,
-          'k8s.container.name': df.container,
-          'service.instance.id': df.pod,
-          'k8s.pod.name': df.pod,
-          'k8s.namespace.name': df.namespace,
-          'pixie.cluster.id': df.cluster_id,
-          'k8s.cluster.name': df.cluster_name,
-          'instrumentation.provider': df.pixie,
-        },
-        data=[
-          px.otel.trace.Span(
-            name=df.req_path,
-            start_time=df.req_start_time,
-            end_time=df.time_,
-            trace_id=df.trace_id,
-            span_id=df.span_id,
-            parent_span_id=df.parent_span_id,
-            attributes={
-              # NOTE: the integration handles splitting of services.
-              'parent.service.name': df.parent_service,
-              'parent.k8s.pod.name': df.parent_pod,
-              'http.method': df.req_method,
-              'http.url': df.req_url,
-              'http.target': df.req_path,
-              'http.host': df.host,
-              # Attributes only accepts string values at the moment.
-              # 'http.status_code': df.resp_status,
-              'http.user_agent': df.user_agent,
-            },
-          ),
-        ],
-      ),
-    )
-   defaultFrequencyS: 10
- - name: "jvm_metrics"
-   description: "This script sends JVM metrics to New Relic's OTel endpoint."
-   script: |
-    #px:set max_output_rows_per_table=10000
+      px.export(
+        df, px.otel.Data(
+          resource={
+            'service.name': df.service,
+            'k8s.container.name': df.container,
+            'service.instance.id': df.pod,
+            'k8s.pod.name': df.pod,
+            'k8s.namespace.name': df.namespace,
+            'pixie.cluster.id': df.cluster_id,
+            'k8s.cluster.name': df.cluster_name,
+            'instrumentation.provider': df.pixie,
+          },
+          data=[
+            px.otel.trace.Span(
+              name=df.req_path,
+              start_time=df.req_start_time,
+              end_time=df.time_,
+              trace_id=df.trace_id,
+              span_id=df.span_id,
+              parent_span_id=df.parent_span_id,
+              attributes={
+                # NOTE: the integration handles splitting of services.
+                'parent.service.name': df.parent_service,
+                'parent.k8s.pod.name': df.parent_pod,
+                'http.method': df.req_method,
+                'http.url': df.req_url,
+                'http.target': df.req_path,
+                'http.host': df.host,
+                # Attributes only accepts string values at the moment.
+                # 'http.status_code': df.resp_status,
+                'http.user_agent': df.user_agent,
+              },
+            ),
+          ],
+        ),
+      )
+    defaultFrequencyS: 10
+  - name: "jvm_metrics"
+    description: "This script sends JVM metrics to New Relic's OTel endpoint."
+    script: |
+      #px:set max_output_rows_per_table=10000
 
-    import px
+      import px
 
-    df = px.DataFrame('jvm_stats', start_time='-10s')
+      df = px.DataFrame('jvm_stats', start_time='-10s')
 
-    df.container = df.ctx['container_name']
-    df.pod = df.ctx['pod']
-    df.service = df.ctx['service']
-    df.namespace = df.ctx['namespace']
+      df.container = df.ctx['container_name']
+      df.pod = df.ctx['pod']
+      df.service = df.ctx['service']
+      df.namespace = df.ctx['namespace']
 
-    df.used_heap_size = px.Bytes(df.used_heap_size)
-    df.total_heap_size = px.Bytes(df.total_heap_size)
-    df.max_heap_size = px.Bytes(df.max_heap_size)
+      df.used_heap_size = px.Bytes(df.used_heap_size)
+      df.total_heap_size = px.Bytes(df.total_heap_size)
+      df.max_heap_size = px.Bytes(df.max_heap_size)
 
-    # Aggregate over each process, k8s_object.
-    df = df.groupby(['upid','container', 'pod', 'service', 'namespace']).agg(
-        young_gc_time_max=('young_gc_time', px.max),
-        young_gc_time_min=('young_gc_time', px.min),
-        full_gc_time_max=('full_gc_time', px.max),
-        full_gc_time_min=('full_gc_time', px.min),
-        used_heap_size=('used_heap_size', px.mean),
-        total_heap_size=('total_heap_size', px.mean),
-        max_heap_size=('max_heap_size', px.mean),
-        time_=('time_', px.max),
-    )
+      # Aggregate over each process, k8s_object.
+      df = df.groupby(['upid','container', 'pod', 'service', 'namespace']).agg(
+          young_gc_time_max=('young_gc_time', px.max),
+          young_gc_time_min=('young_gc_time', px.min),
+          full_gc_time_max=('full_gc_time', px.max),
+          full_gc_time_min=('full_gc_time', px.min),
+          used_heap_size=('used_heap_size', px.mean),
+          total_heap_size=('total_heap_size', px.mean),
+          max_heap_size=('max_heap_size', px.mean),
+          time_=('time_', px.max),
+      )
 
-    # Convert the counter metrics into accumulated values over the window.
-    df.young_gc_time = df.young_gc_time_max - df.young_gc_time_min
-    df.full_gc_time = df.full_gc_time_max - df.full_gc_time_min
+      # Convert the counter metrics into accumulated values over the window.
+      df.young_gc_time = df.young_gc_time_max - df.young_gc_time_min
+      df.full_gc_time = df.full_gc_time_max - df.full_gc_time_min
 
-    # Aggregate over each k8s_object.
-    df = df.groupby(['container', 'pod', 'service', 'namespace']).agg(
-        young_gc_time=('young_gc_time', px.sum),
-        full_gc_time=('full_gc_time', px.sum),
-        used_heap_size=('used_heap_size', px.sum),
-        max_heap_size=('max_heap_size', px.sum),
-        total_heap_size=('total_heap_size', px.sum),
-        time_=('time_', px.max),
-    )
-    df.young_gc_time = px.DurationNanos(df.young_gc_time) / 1000000.0
-    df.full_gc_time = px.DurationNanos(df.full_gc_time) / 1000000.0
+      # Aggregate over each k8s_object.
+      df = df.groupby(['container', 'pod', 'service', 'namespace']).agg(
+          young_gc_time=('young_gc_time', px.sum),
+          full_gc_time=('full_gc_time', px.sum),
+          used_heap_size=('used_heap_size', px.sum),
+          max_heap_size=('max_heap_size', px.sum),
+          total_heap_size=('total_heap_size', px.sum),
+          time_=('time_', px.max),
+      )
+      df.young_gc_time = px.DurationNanos(df.young_gc_time) / 1000000.0
+      df.full_gc_time = px.DurationNanos(df.full_gc_time) / 1000000.0
 
-    df.cluster_name = px.vizier_name()
-    df.cluster_id = px.vizier_id()
-    df.pixie = 'pixie'
+      df.cluster_name = px.vizier_name()
+      df.cluster_id = px.vizier_id()
+      df.pixie = 'pixie'
 
-    df.young = 'young'
-    df.full = 'full'
-    df.used = 'used'
-    df.total = 'total'
-    df.heap = 'area'
-    df.max = 'max'
+      df.young = 'young'
+      df.full = 'full'
+      df.used = 'used'
+      df.total = 'total'
+      df.heap = 'area'
+      df.max = 'max'
 
-    # Write to UI if debugging
-    px.display(df)
+      # Write to UI if debugging
+      px.display(df)
 
-    px.export(
-      df, px.otel.Data(
-        resource={
-          'service.name': df.service,
-          'k8s.container.name': df.container,
-          'service.instance.id': df.pod,
-          'k8s.pod.name': df.pod,
-          'k8s.namespace.name': df.namespace,
-          'px.cluster.id': df.cluster_id,
-          'k8s.cluster.name': df.cluster_name,
-          'instrumentation.provider': df.pixie,
-        },
-        data=[
-          px.otel.metric.Gauge(
-            name='runtime.jvm.gc.collection',
-            description='',
-            value=df.young_gc_time,
-            attributes={'gc': df.young},
-          ),
-          px.otel.metric.Gauge(
-            name='runtime.jvm.gc.collection',
-            description=''
-            value=df.full_gc_time,
-            attributes={'gc': df.full},
-          ),
-          px.otel.metric.Gauge(
-            name='runtime.memory.area',
-            description=''
-            value=df.used_heap_size,
-            attributes={'type': df.used, 'area': df.heap},
-          ),
-          px.otel.metric.Gauge(
-            name='runtime.memory.area',
-            description=''
-            value=df.total_heap_size,
-            attributes={'type': df.total, 'area': df.heap},
-          ),
-          px.otel.metric.Gauge(
-            name='runtime.memory.area',
-            description=''
-            value=df.max_heap_size,
-            attributes={'type': df.max, 'area': df.heap},
-          ),
-        ],
-      ),
-    )
-   defaultFrequencyS: 10
+      px.export(
+        df, px.otel.Data(
+          resource={
+            'service.name': df.service,
+            'k8s.container.name': df.container,
+            'service.instance.id': df.pod,
+            'k8s.pod.name': df.pod,
+            'k8s.namespace.name': df.namespace,
+            'px.cluster.id': df.cluster_id,
+            'k8s.cluster.name': df.cluster_name,
+            'instrumentation.provider': df.pixie,
+          },
+          data=[
+            px.otel.metric.Gauge(
+              name='runtime.jvm.gc.collection',
+              description='',
+              value=df.young_gc_time,
+              attributes={'gc': df.young},
+            ),
+            px.otel.metric.Gauge(
+              name='runtime.jvm.gc.collection',
+              description=''
+              value=df.full_gc_time,
+              attributes={'gc': df.full},
+            ),
+            px.otel.metric.Gauge(
+              name='runtime.memory.area',
+              description=''
+              value=df.used_heap_size,
+              attributes={'type': df.used, 'area': df.heap},
+            ),
+            px.otel.metric.Gauge(
+              name='runtime.memory.area',
+              description=''
+              value=df.total_heap_size,
+              attributes={'type': df.total, 'area': df.heap},
+            ),
+            px.otel.metric.Gauge(
+              name='runtime.memory.area',
+              description=''
+              value=df.max_heap_size,
+              attributes={'type': df.max, 'area': df.heap},
+            ),
+          ],
+        ),
+      )
+    defaultFrequencyS: 10

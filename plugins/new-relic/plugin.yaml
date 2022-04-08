@@ -1,7 +1,7 @@
 name: "New Relic"
 id: "new-relic"
 description: "The official New Relic plugin for Pixie. This plugin will help export your Pixie data to NR1."
-version: "0.0.1"  
+version: "0.0.1"
 updated: "2022-04-18"
 keywords:
   - newrelic
