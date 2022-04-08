@@ -62,4 +62,4 @@ presetScripts:
         )],
       ),
     )
-   frequencyS: 10
+   defaultFrequencyS: 10
