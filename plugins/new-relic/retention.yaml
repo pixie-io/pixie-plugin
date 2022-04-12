@@ -227,30 +227,40 @@ presetScripts:
             px.otel.metric.Gauge(
               name='runtime.jvm.gc.collection',
               description='',
+              # Unit is not supported yet
+              # unit='ms',
               value=df.young_gc_time,
               attributes={'gc': df.young},
             ),
             px.otel.metric.Gauge(
               name='runtime.jvm.gc.collection',
               description=''
+              # Unit is not supported yet
+              # unit='ms',
               value=df.full_gc_time,
               attributes={'gc': df.full},
             ),
             px.otel.metric.Gauge(
               name='runtime.memory.area',
               description=''
+              # Unit is not supported yet
+              # unit='bytes',
               value=df.used_heap_size,
               attributes={'type': df.used, 'area': df.heap},
             ),
             px.otel.metric.Gauge(
               name='runtime.memory.area',
               description=''
+              # Unit is not supported yet
+              # unit='bytes',
               value=df.total_heap_size,
               attributes={'type': df.total, 'area': df.heap},
             ),
             px.otel.metric.Gauge(
               name='runtime.memory.area',
               description=''
+              # Unit is not supported yet
+              # unit='bytes',
               value=df.max_heap_size,
               attributes={'type': df.max, 'area': df.heap},
             ),
