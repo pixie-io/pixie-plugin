@@ -54,6 +54,9 @@ presetScripts:
           data=[
             px.otel.metric.Summary(
               name='http.server.duration',
+              description='measures the duration of the inbound HTTP request',
+              # Unit is not supported yet
+              # unit='ms',
               count=df.latency_count,
               sum=df.latency_sum,
               quantile_values={
