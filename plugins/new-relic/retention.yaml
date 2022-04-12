@@ -63,6 +63,10 @@ presetScripts:
                 0.0: df.latency_min,
                 1.0: df.latency_max,
               },
+              # Attributes for summary metrics are not supported yet
+              # attributes={
+              #   'http.status_code': df.status_code,
+              # },
           )],
         ),
       )
