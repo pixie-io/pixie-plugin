@@ -37,6 +37,7 @@ This YAML contains general configuration information about the plugin. This cont
 
 This should be provided only if the plugin supports longterm data retention.
 
+
 | **Field**            | **Type**          | **Required** | **Description**                                                                                                                                                                                                                                                           |
 |----------------------|-------------------|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | documentationURL     | string            | false        | URL that can be used to direct user to documentation about data retention (on the plugin provider’s side)                                                                                                                                                                 |
