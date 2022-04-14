@@ -11,7 +11,7 @@ presetScripts:
 
       import px
 
-      df = px.DataFrame(table='http_events', start_time='-10s')
+      df = px.DataFrame(table='http_events', start_time=px.plugin.start_time)
 
       df.container = df.ctx['container_name']
       df.pod = df.ctx['pod']
@@ -78,7 +78,7 @@ presetScripts:
 
       import px
 
-      df = px.DataFrame('http_events', start_time='-10s')
+      df = px.DataFrame('http_events', start_time=px.plugin.start_time)
 
       df.container = df.ctx['container_name']
       df.pod = df.ctx['pod']
@@ -158,7 +158,7 @@ presetScripts:
 
       import px
 
-      df = px.DataFrame('jvm_stats', start_time='-10s')
+      df = px.DataFrame('jvm_stats', start_time=px.plugin.start_time)
 
       df.container = df.ctx['container_name']
       df.pod = df.ctx['pod']
@@ -275,7 +275,7 @@ presetScripts:
 
       import px
 
-      df = px.DataFrame('pgsql_events', start_time='-10s')
+      df = px.DataFrame('pgsql_events', start_time=px.plugin.start_time)
 
       df.container = df.ctx['container_name']
       df.pod = df.ctx['pod']
@@ -336,7 +336,7 @@ presetScripts:
 
       import px
 
-      df = px.DataFrame('mysql_events', start_time='-10s')
+      df = px.DataFrame('mysql_events', start_time=px.plugin.start_time)
 
       df.container = df.ctx['container_name']
       df.pod = df.ctx['pod']
