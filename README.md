@@ -1,6 +1,6 @@
 # Pixie Community Plugins
 
-This repository is for community-submitted plugins for the Pixie Plugin system. The Pixie Plugin system allows other tools to provide additional capabilities within Pixie:
+This repository is for community-submitted plugins for the [Pixie Plugin system](https://docs.px.dev/reference/plugins/plugin-system/). The Pixie Plugin system allows other tools to provide additional capabilities within Pixie:
 
 - Longterm Data Retention: Pixie is designed for a real-time debugging use-case and does not guarantee data storage for over 24 hours. Leverage an external datastore for longterm data retention by sending Pixie data in the [OpenTelemetry](https://opentelemetry.io/) format. Future support will be added for querying longterm data from within the Pixie UI, allowing you to use PxL and Pixie's versatile live views.
 - Alerts (Coming Soon!): Power alerts using Pixie's rich dataset, all configurable from within Pixie's UI.
@@ -58,7 +58,7 @@ The presetScripts object should adhere to the following format:
 | script            | string   | true         | The PxL script.                                                                                                                       |
 | defaultFrequencyS | int      | false        | The default interval, in seconds, at which the script should be rerun. The user has the ability to change this interval if they wish. |
 
-### Testing a Plugin
+## Testing a Plugin
 
 Your plugin should be manually tested prior to submission.
 
