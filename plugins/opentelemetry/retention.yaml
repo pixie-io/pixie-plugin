@@ -1,0 +1,253 @@
+documentationURL: ""
+defaultExportURL: ""
+allowCustomExportURL: true
+allowInsecureTLS: true
+presetScripts:
+  - name: "Connection Stats"
+    description: "This script exports data from the conn_stats table, which contains connection-level statistics on the communications made between client-server pairs."
+    script: |
+      import px
+
+      df = px.DataFrame(table='conn_stats',  start_time=px.plugin.start_time)
+      df.container = df.ctx['container_name']
+      df.pod = df.ctx['pod']
+      df.service = df.ctx['service']
+      df.namespace = df.ctx['namespace']
+      df.provider = 'pixie'
+      df.cluster_name = px.vizier_name()
+      df.cluster_id = px.vizier_id()
+
+      px.display(df)
+
+      px.export(
+        df, px.otel.Data(
+          resource={
+            # User must specify service_name
+            'service.name': df.service,
+            # Optional specifications.
+            'k8s.container.name': df.container,
+            'service.instance.id': df.pod,
+            'k8s.pod.name': df.pod,
+            'k8s.namespace.name': df.namespace,
+            'px.cluster.id': df.cluster_id,
+            'k8s.cluster.name': df.cluster_name,
+            'instrumentation.provider': df.provider,
+          },
+          data=[
+            px.otel.metric.Gauge(
+              name='conn_stats.bytes_sent',
+              description='How many bytes were sent in communications between client-server pairs',
+              value=df.bytes_sent,
+              attributes={'remote_port': df.remote_port, 'remote_addr': df.remote_addr},
+            ),
+            px.otel.metric.Gauge(
+              name='conn_stats.bytes_revc',
+              description='How many bytes were received in communications between client-server pairs',
+              value=df.bytes_recv,
+              attributes={'remote_port': df.remote_port, 'remote_addr': df.remote_addr},
+            )
+          ],
+        ),
+      )
+    defaultFrequencyS: 10
+  - name: "Network Stats"
+    description: "This script exports data from the network_stats table, which contains aggregate statistics measured at the network layer such as RX/TX errors."
+    script: |
+      import px
+
+      df = px.DataFrame(table='network_stats', select=['time_', 'pod_id', 'rx_bytes',
+                                                       'rx_packets', 'rx_errors',
+                                                       'rx_drops', 'tx_bytes', 'tx_packets',
+                                                       'tx_errors', 'tx_drops'], start_time=px.plugin.start_time)
+
+      df.pod = px.pod_id_to_pod_name(df.pod_id)
+      df.service = px.pod_id_to_service_name(df.pod_id)
+      df.namespace = px.pod_id_to_namespace(df.pod_id)
+      df.node = px.pod_id_to_node_name(df.pod_id)
+      df.provider = 'pixie'
+      df.cluster_name = px.vizier_name()
+      df.cluster_id = px.vizier_id()
+
+      px.display(df)
+
+      px.export(
+        df, px.otel.Data(
+          resource={
+            # User must specify service_name
+            'service.name': df.service,
+            # Optional specifications.
+            'service.instance.id': df.pod,
+            'k8s.pod.name': df.pod,
+            'k8s.namespace.name': df.namespace,
+            'px.cluster.id': df.cluster_id,
+            'k8s.cluster.name': df.cluster_name,
+            'instrumentation.provider': df.provider,
+          },
+          data=[
+            px.otel.metric.Gauge(
+              name='network_stats.rx_bytes',
+              description='How many bytes were received by the pod in network traffic',
+              value=df.rx_bytes,
+            ),
+            px.otel.metric.Gauge(
+              name='network_stats.tx_bytes',
+              description='How many bytes were transmitted by the pod in network traffic',
+              value=df.tx_bytes,
+            ),
+            px.otel.metric.Gauge(
+              name='network_stats.rx_packets',
+              description='How many packets were received by the pod in network traffic',
+              value=df.rx_packets,
+            ),
+            px.otel.metric.Gauge(
+              name='network_stats.tx_packets',
+              description='How many packets were transmitted by the pod in network traffic',
+              value=df.tx_packets,
+            ),
+            px.otel.metric.Gauge(
+              name='network_stats.rx_errors',
+              description='Number of network receive errors by the pod',
+              value=df.rx_errors,
+            ),
+            px.otel.metric.Gauge(
+              name='network_stats.tx_errors',
+              description='Number of network transmit errors by the pod',
+              value=df.tx_errors,
+            ),
+            px.otel.metric.Gauge(
+              name='network_stats.tx_drops',
+              description='Number of network transmit drops by the pod',
+              value=df.tx_drops,
+            ),
+            px.otel.metric.Gauge(
+              name='network_stats.rx_drops',
+              description='Number of network receive drops by the pod',
+              value=df.rx_drops,
+            ),      
+          ],
+        ),
+      )
+    defaultFrequencyS: 10
+  - name: "Resource Summary"
+    description: "This script exports resource summary data, such as CPU and memory usage."
+    script: |
+      import px
+
+      ns_per_ms = 1000 * 1000
+      ns_per_s = 1000 * ns_per_ms
+      # Window size to use on time_ column for bucketing.
+      window_ns = px.DurationNanos(10 * ns_per_s)
+
+      df = px.DataFrame(table='process_stats', start_time=px.plugin.start_time)
+      df.timestamp = px.bin(df.time_, window_ns)
+      df.container = df.ctx['container_name']
+
+      df.pod = df.ctx['pod']
+      df.service = df.ctx['service']
+      df.namespace = df.ctx['namespace']
+
+
+      # First calculate CPU usage by process (UPID) in each k8s_object
+      # over all windows.
+      df = df.groupby(['upid', 'container', 'timestamp', 'pod', 'service', 'namespace']).agg(
+          rss=('rss_bytes', px.mean),
+          vsize=('vsize_bytes', px.mean),
+          # The fields below are counters, so we take the min and the max to subtract them.
+          cpu_utime_ns_max=('cpu_utime_ns', px.max),
+          cpu_utime_ns_min=('cpu_utime_ns', px.min),
+          cpu_ktime_ns_max=('cpu_ktime_ns', px.max),
+          cpu_ktime_ns_min=('cpu_ktime_ns', px.min),
+          read_bytes_max=('read_bytes', px.max),
+          read_bytes_min=('read_bytes', px.min),
+          write_bytes_max=('write_bytes', px.max),
+          write_bytes_min=('write_bytes', px.min),
+          rchar_bytes_max=('rchar_bytes', px.max),
+          rchar_bytes_min=('rchar_bytes', px.min),
+          wchar_bytes_max=('wchar_bytes', px.max),
+          wchar_bytes_min=('wchar_bytes', px.min),
+      )
+
+      # Next calculate cpu usage and memory stats per window.
+      df.cpu_utime_ns = df.cpu_utime_ns_max - df.cpu_utime_ns_min
+      df.cpu_ktime_ns = df.cpu_ktime_ns_max - df.cpu_ktime_ns_min
+      df.actual_disk_read_throughput = (df.read_bytes_max - df.read_bytes_min) / window_ns
+      df.actual_disk_write_throughput = (df.write_bytes_max - df.write_bytes_min) / window_ns
+      df.total_disk_read_throughput = (df.rchar_bytes_max - df.rchar_bytes_min) / window_ns
+      df.total_disk_write_throughput = (df.wchar_bytes_max - df.wchar_bytes_min) / window_ns
+
+      # Then aggregate process individual process metrics.
+      df = df.groupby(['timestamp', 'container',  'pod', 'service', 'namespace']).agg(
+          cpu_ktime_ns=('cpu_ktime_ns', px.sum),
+          cpu_utime_ns=('cpu_utime_ns', px.sum),
+          actual_disk_read_throughput=('actual_disk_read_throughput', px.sum),
+          actual_disk_write_throughput=('actual_disk_write_throughput', px.sum),
+          total_disk_read_throughput=('total_disk_read_throughput', px.sum),
+          total_disk_write_throughput=('total_disk_write_throughput', px.sum),
+          rss=('rss', px.sum),
+          vsize=('vsize', px.sum),
+      )
+
+      # Finally, calculate total (kernel + user time)  percentage used over window.
+      df.cpu_usage = px.Percent((df.cpu_ktime_ns + df.cpu_utime_ns) / window_ns)
+      df['time_'] = df['timestamp']
+
+      df.provider = 'pixie'
+      df.cluster_name = px.vizier_name()
+      df.cluster_id = px.vizier_id()
+
+      px.display(df.drop(['cpu_ktime_ns', 'cpu_utime_ns', 'timestamp']))
+
+      px.export(
+        df, px.otel.Data(
+          resource={
+            # User must specify service_name
+            'service.name': df.service,
+            # Optional specifications.
+            'k8s.container.name': df.container,
+            'service.instance.id': df.pod,
+            'k8s.pod.name': df.pod,
+            'k8s.namespace.name': df.namespace,
+            'px.cluster.id': df.cluster_id,
+            'k8s.cluster.name': df.cluster_name,
+            'instrumentation.provider': df.provider,
+          },
+          data=[
+            px.otel.metric.Gauge(
+              name='resource_summary.actual_disk_read_throughput',
+              description='',
+              value=df.actual_disk_read_throughput,
+            ),
+            px.otel.metric.Gauge(
+              name='resource_summary.actual_disk_write_throughput',
+              description='',
+              value=df.actual_disk_write_throughput,
+            ),
+            px.otel.metric.Gauge(
+              name='resource_summary.total_disk_read_throughput',
+              description='',
+              value=df.total_disk_read_throughput,
+            ),
+            px.otel.metric.Gauge(
+              name='resource_summary.total_disk_write_throughput',
+              description='',
+              value=df.total_disk_write_throughput,
+            ),
+            px.otel.metric.Gauge(
+              name='resource_summary.rss',
+              description='',
+              value=df.rss,
+            ),
+            px.otel.metric.Gauge(
+              name='resource_summary.vsize',
+              description='',
+              value=df.vsize,
+            ),
+            px.otel.metric.Gauge(
+              name='resource_summary.cpu_usage',
+              description='',
+              value=df.cpu_usage,
+            ),
+          ],
+        ),
+      )
+    defaultFrequencyS: 10
