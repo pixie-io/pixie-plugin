@@ -63,10 +63,9 @@ presetScripts:
                 0.0: df.latency_min,
                 1.0: df.latency_max,
               },
-              # Attributes for summary metrics are not supported yet
-              # attributes={
-              #   'http.status_code': df.status_code,
-              # },
+              attributes={
+                'http.status_code': df.status_code,
+              },
           )],
         ),
       )
@@ -142,8 +141,7 @@ presetScripts:
                 'http.url': df.req_url,
                 'http.target': df.req_path,
                 'http.host': df.host,
-                # Attributes only accepts string values at the moment.
-                # 'http.status_code': df.resp_status,
+                'http.status_code': df.resp_status,
                 'http.user_agent': df.user_agent,
               },
             ),
