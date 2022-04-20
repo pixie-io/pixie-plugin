@@ -13,9 +13,10 @@ presetScripts:
 
       df = px.DataFrame(table='http_events', start_time=px.plugin.start_time)
 
+      ns_prefix = df.ctx['namespace'] + '/'
       df.container = df.ctx['container_name']
-      df.pod = df.ctx['pod']
-      df.service = df.ctx['service']
+      df.pod = px.strip_prefix(ns_prefix, df.ctx['pod'])
+      df.service = px.strip_prefix(ns_prefix, df.ctx['service'])
       df.namespace = df.ctx['namespace']
 
       df.status_code = df.resp_status
@@ -76,9 +77,10 @@ presetScripts:
 
       df = px.DataFrame('http_events', start_time=px.plugin.start_time)
 
+      ns_prefix = df.ctx['namespace'] + '/'
       df.container = df.ctx['container_name']
-      df.pod = df.ctx['pod']
-      df.service = df.ctx['service']
+      df.pod = px.strip_prefix(ns_prefix, df.ctx['pod'])
+      df.service = px.strip_prefix(ns_prefix, df.ctx['service'])
       df.namespace = df.ctx['namespace']
 
       df = df.head(15000)
@@ -152,9 +154,10 @@ presetScripts:
 
       df = px.DataFrame('jvm_stats', start_time=px.plugin.start_time)
 
+      ns_prefix = df.ctx['namespace'] + '/'
       df.container = df.ctx['container_name']
-      df.pod = df.ctx['pod']
-      df.service = df.ctx['service']
+      df.pod = px.strip_prefix(ns_prefix, df.ctx['pod'])
+      df.service = px.strip_prefix(ns_prefix, df.ctx['service'])
       df.namespace = df.ctx['namespace']
 
       df.used_heap_size = px.Bytes(df.used_heap_size)
@@ -266,9 +269,10 @@ presetScripts:
 
       df = px.DataFrame('pgsql_events', start_time=px.plugin.start_time)
 
+      ns_prefix = df.ctx['namespace'] + '/'
       df.container = df.ctx['container_name']
-      df.pod = df.ctx['pod']
-      df.service = df.ctx['service']
+      df.pod = px.strip_prefix(ns_prefix, df.ctx['pod'])
+      df.service = px.strip_prefix(ns_prefix, df.ctx['service'])
       df.namespace = df.ctx['namespace']
 
       df.normed_query_struct = px.normalize_pgsql(df.req, df.req_cmd)
@@ -324,9 +328,10 @@ presetScripts:
 
       df = px.DataFrame('mysql_events', start_time=px.plugin.start_time)
 
+      ns_prefix = df.ctx['namespace'] + '/'
       df.container = df.ctx['container_name']
-      df.pod = df.ctx['pod']
-      df.service = df.ctx['service']
+      df.pod = px.strip_prefix(ns_prefix, df.ctx['pod'])
+      df.service = px.strip_prefix(ns_prefix, df.ctx['service'])
       df.namespace = df.ctx['namespace']
 
       df.normed_query_struct = px.normalize_mysql(df.req_body, df.req_cmd)
