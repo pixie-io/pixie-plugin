@@ -36,9 +36,6 @@ presetScripts:
       df.cluster_id = px.vizier_id()
       df.pixie = 'pixie'
 
-      # Write to UI if debugging
-      px.display(df)
-
       px.export(
         df, px.otel.Data(
           resource={
@@ -106,9 +103,6 @@ presetScripts:
       df.cluster_name = px.vizier_name()
       df.cluster_id = px.vizier_id()
       df.pixie = 'pixie'
-
-      # Write to UI if debugging
-      px.display(df)
 
       px.export(
         df, px.otel.Data(
@@ -206,9 +200,6 @@ presetScripts:
       df.heap = 'area'
       df.max = 'max'
 
-      # Write to UI if debugging
-      px.display(df)
-
       px.export(
         df, px.otel.Data(
           resource={
@@ -296,9 +287,6 @@ presetScripts:
       df.pixie = 'pixie'
       df.db_system = 'postgres'
 
-      # Write to UI if debugging
-      px.display(df)
-
       px.export(
         df, px.otel.Data(
           resource={
@@ -356,9 +344,6 @@ presetScripts:
       df.cluster_id = px.vizier_id()
       df.pixie = 'pixie'
       df.db_system = 'mysql'
-
-      # Write to UI if debugging
-      px.display(df)
 
       px.export(
         df, px.otel.Data(
