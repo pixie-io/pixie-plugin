@@ -126,9 +126,7 @@ presetScripts:
               trace_id=df.trace_id,
               span_id=df.span_id,
               parent_span_id=df.parent_span_id,
-              # Status and kind are not supported yet
-              # status=0, # tracepb.Status_STATUS_CODE_UNSET
-              # kind=2, # tracepb.Span_SPAN_KIND_SERVER
+              kind=px.otel.trace.SPAN_KIND_SERVER,
               attributes={
                 # NOTE: the integration handles splitting of services.
                 'parent.service.name': df.parent_service,
@@ -308,9 +306,7 @@ presetScripts:
               name=df.query,
               start_time=df.start_time,
               end_time=df.end_time,
-              # Status and kind are not supported yet
-              # status=0, # tracepb.Status_STATUS_CODE_UNSET
-              # kind=3, # tracepb.Span_SPAN_KIND_CLIENT
+              kind=px.otel.trace.SPAN_KIND_CLIENT,
               attributes={
                 'db.system': df.db_system,
               },
@@ -367,9 +363,7 @@ presetScripts:
               name=df.query,
               start_time=df.start_time,
               end_time=df.end_time,
-              # Status and kind are not supported yet
-              # status=0, # tracepb.Status_STATUS_CODE_UNSET
-              # kind=3, # tracepb.Span_SPAN_KIND_CLIENT
+              kind=px.otel.trace.SPAN_KIND_CLIENT,
               attributes={
                 'db.system': df.db_system,
               },
