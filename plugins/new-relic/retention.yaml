@@ -86,8 +86,8 @@ presetScripts:
       df = df.head(15000)
       df.req_start_time = df.time_ - df.latency
       df.parent_pod_id = px.ip_to_pod_id(df.remote_addr)
-      df.parent_service = px.pod_id_to_service_name(df.parent_pod_id)
-      df.parent_pod = px.pod_id_to_pod_name(df.parent_pod_id)
+      df.parent_service = px.replace('.*/', px.pod_id_to_service_name(df.parent_pod_id), '')
+      df.parent_pod = px.replace('.*/', px.pod_id_to_pod_name(df.parent_pod_id), '')
       df.host = px.pluck(df.req_headers, 'Host')
       df.req_url = df.host + df.req_path
 
