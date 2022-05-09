@@ -4,7 +4,7 @@ configurations:
 defaultExportURL: "otlp.nr-data.net:443"
 allowCustomExportURL: true
 presetScripts:
-  - name: "http_metrics"
+  - name: "HTTP Metrics"
     description: "This script sends HTTP metrics to New Relic's OTel endpoint."
     script: |
       #px:set max_output_rows_per_table=10000
@@ -68,7 +68,7 @@ presetScripts:
         ),
       )
     defaultFrequencyS: 10
-  - name: "http_spans"
+  - name: "HTTP Spans"
     description: "This script sends HTTP span events (distributed tracing) to New Relic's OTel endpoint."
     script: |
       #px:set max_output_rows_per_table=1500
@@ -143,7 +143,7 @@ presetScripts:
         ),
       )
     defaultFrequencyS: 10
-  - name: "jvm_metrics"
+  - name: "JVM Metrics"
     description: "This script sends JVM metrics to New Relic's OTel endpoint."
     script: |
       #px:set max_output_rows_per_table=10000
@@ -258,7 +258,7 @@ presetScripts:
         ),
       )
     defaultFrequencyS: 10
-  - name: "postgres"
+  - name: "PostgreSQL Spans"
     description: "This script generates span events from queries to PostgreSQL databases and send them to New Relic's OTel endpoint."
     script: |
       #px:set max_output_rows_per_table=500
@@ -315,7 +315,7 @@ presetScripts:
         ),
       )
     defaultFrequencyS: 10
-  - name: "mysql"
+  - name: "MySQL Spans"
     description: "This script generates span events from queries to MySQL databases and send them to New Relic's OTel endpoint."
     script: |
       #px:set max_output_rows_per_table=500
