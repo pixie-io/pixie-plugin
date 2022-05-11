@@ -2,7 +2,7 @@
 
 This repository is for community-submitted plugins for the [Pixie Plugin system](https://docs.px.dev/reference/plugins/plugin-system/). The Pixie Plugin system allows other tools to provide additional capabilities within Pixie:
 
-Long-term Data Retention: Pixie is designed for a real-time debugging use-case and does not guarantee data storage for over 24 hours. Leverage an external datastore for long-term data retention by sending Pixie data in the [OpenTelemetry](https://opentelemetry.io/) format. Future support will be added for querying long-term data from within the Pixie UI, allowing you to use PxL and Pixie's versatile live views.
+- Long-term Data Retention: Pixie is designed for a real-time debugging use-case and does not guarantee data storage for over 24 hours. Leverage an external datastore for long-term data retention by sending Pixie data in the [OpenTelemetry](https://opentelemetry.io/) format. Future support will be added for querying long-term data from within the Pixie UI, allowing you to use PxL and Pixie's versatile live views.
 - Alerts (Coming Soon!): Power alerts using Pixie's rich dataset, all configurable from within Pixie's UI.
 
 For any questions, reach out to us on [Slack](https://slackin.px.dev).
