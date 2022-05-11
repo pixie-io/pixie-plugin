@@ -2,10 +2,19 @@
 
 This repository is for community-submitted plugins for the [Pixie Plugin system](https://docs.px.dev/reference/plugins/plugin-system/). The Pixie Plugin system allows other tools to provide additional capabilities within Pixie:
 
-- Longterm Data Retention: Pixie is designed for a real-time debugging use-case and does not guarantee data storage for over 24 hours. Leverage an external datastore for longterm data retention by sending Pixie data in the [OpenTelemetry](https://opentelemetry.io/) format. Future support will be added for querying longterm data from within the Pixie UI, allowing you to use PxL and Pixie's versatile live views.
+Long-term Data Retention: Pixie is designed for a real-time debugging use-case and does not guarantee data storage for over 24 hours. Leverage an external datastore for long-term data retention by sending Pixie data in the [OpenTelemetry](https://opentelemetry.io/) format. Future support will be added for querying long-term data from within the Pixie UI, allowing you to use PxL and Pixie's versatile live views.
 - Alerts (Coming Soon!): Power alerts using Pixie's rich dataset, all configurable from within Pixie's UI.
 
 For any questions, reach out to us on [Slack](https://slackin.px.dev).
+
+## Available Plugins
+
+| **Name** | **Type**          | **Description**                                                                                                                                                                         | **Tutorial**                                      |
+|-----------------|--------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------|
+| New Relic       | Long-term Data Retention | Send Pixie data formatted in the [OpenTelemetry](https://opentelemetry.io/) format to New Relic's OpenTelemetry endpoint for long-term data retention, dashboarding, alerting and more. | [link](https://docs.pixielabs.ai/tutorials/integrations/nr-retention) |
+| OpenTelemetry   | Long-term Data Retention | Send Pixie data formatted in the [OpenTelemetry](https://opentelemetry.io/) format to any [OpenTelemetry collector](https://opentelemetry.io/docs/collector/).                          | [link](https://docs.px.dev/tutorials/integrations/otel/)         |
+
+# Contributing
 
 ## Submitting a plugin
 
@@ -31,11 +40,11 @@ This YAML contains general configuration information about the plugin. This cont
 | version              | string   | true         | Version of the plugin. Should follow semVer.                |
 | updated              | string   | true         | Date when the plugin version was released                   |
 | keywords             | string[] | false        | Keywords that can be used to search for the plugin          |
-| dataRetentionEnabled | boolean  | true         | Whether or not this plugin supports longterm data retention |
+| dataRetentionEnabled | boolean  | true         | Whether or not this plugin supports long-term data retention |
 
 ### retention.yaml
 
-This should be provided only if the plugin supports longterm data retention.
+This should be provided only if the plugin supports long-term data retention.
 
 
 | **Field**            | **Type**          | **Required** | **Description**                                                                                                                                                                                                                                                           |
