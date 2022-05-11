@@ -18,9 +18,13 @@ For any questions, reach out to us on [Slack](https://slackin.px.dev).
 
 ## Submitting a plugin
 
-Before submitting a plugin, please review our [Code of Conduct](https://github.com/pixie-io/pixie/blob/main/CODE_OF_CONDUCT.md).
+To submit plugin, please do the following:
 
-Plugins should be submitted as a pull request to this repository. The pull request will be carefully reviewed by the Pixie maintainers to ensure it meets quality and security standards.
+1. Review our [Code of Conduct](https://github.com/pixie-io/pixie/blob/main/CODE_OF_CONDUCT.md).
+2. Test your plugin following the directions [here](#testing-a-plugin).
+3. Submit a pull request to this repository. Don't forget to update this README file to add your plugin to the table of [Available Plugins](#available-plugins).
+
+Once submitted, your pull request will be carefully reviewed by the Pixie maintainers to ensure it meets quality and security standards.
 
 ## Plugin Format 
 
