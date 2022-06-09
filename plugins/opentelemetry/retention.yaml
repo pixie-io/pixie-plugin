@@ -8,7 +8,7 @@ presetScripts:
     script: |
       import px
 
-      df = px.DataFrame(table='conn_stats',  start_time=px.plugin.start_time)
+      df = px.DataFrame(table='conn_stats',  start_time=px.plugin.start_time, end_time=px.plugin.end_time)
       df.container = df.ctx['container_name']
       df.pod = df.ctx['pod']
       df.service = df.ctx['service']
@@ -58,7 +58,7 @@ presetScripts:
       df = px.DataFrame(table='network_stats', select=['time_', 'pod_id', 'rx_bytes',
                                                        'rx_packets', 'rx_errors',
                                                        'rx_drops', 'tx_bytes', 'tx_packets',
-                                                       'tx_errors', 'tx_drops'], start_time=px.plugin.start_time)
+                                                       'tx_errors', 'tx_drops'], start_time=px.plugin.start_time, end_time=px.plugin.end_time)
 
       df.pod = px.pod_id_to_pod_name(df.pod_id)
       df.service = px.pod_id_to_service_name(df.pod_id)
@@ -138,7 +138,7 @@ presetScripts:
       # Window size to use on time_ column for bucketing.
       window_ns = px.DurationNanos(10 * ns_per_s)
 
-      df = px.DataFrame(table='process_stats', start_time=px.plugin.start_time)
+      df = px.DataFrame(table='process_stats', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
       df.timestamp = px.bin(df.time_, window_ns)
       df.container = df.ctx['container_name']
 
