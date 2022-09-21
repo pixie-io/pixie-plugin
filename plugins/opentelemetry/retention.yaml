@@ -12,6 +12,7 @@ presetScripts:
       df.container = df.ctx['container_name']
       df.pod = df.ctx['pod']
       df.service = df.ctx['service']
+      df.deployment = df.ctx['deployment']
       df.namespace = df.ctx['namespace']
       df.provider = 'pixie'
       df.cluster_name = px.vizier_name()
@@ -29,6 +30,7 @@ presetScripts:
             'service.instance.id': df.pod,
             'k8s.pod.name': df.pod,
             'k8s.namespace.name': df.namespace,
+            'k8s.deployment.name': df.deployment,
             'px.cluster.id': df.cluster_id,
             'k8s.cluster.name': df.cluster_name,
             'instrumentation.provider': df.provider,
@@ -62,6 +64,7 @@ presetScripts:
 
       df.pod = px.pod_id_to_pod_name(df.pod_id)
       df.service = px.pod_id_to_service_name(df.pod_id)
+      df.deployment = px.pod_id_to_deployment_name(df.pod_id)
       df.namespace = px.pod_id_to_namespace(df.pod_id)
       df.node = px.pod_id_to_node_name(df.pod_id)
       df.provider = 'pixie'
@@ -78,6 +81,7 @@ presetScripts:
             # Optional specifications.
             'service.instance.id': df.pod,
             'k8s.pod.name': df.pod,
+            'k8s.deployment.name': df.deployment,
             'k8s.namespace.name': df.namespace,
             'px.cluster.id': df.cluster_id,
             'k8s.cluster.name': df.cluster_name,
@@ -145,11 +149,12 @@ presetScripts:
       df.pod = df.ctx['pod']
       df.service = df.ctx['service']
       df.namespace = df.ctx['namespace']
+      df.deployment = df.ctx['deployment']
 
 
       # First calculate CPU usage by process (UPID) in each k8s_object
       # over all windows.
-      df = df.groupby(['upid', 'container', 'timestamp', 'pod', 'service', 'namespace']).agg(
+      df = df.groupby(['upid', 'container', 'timestamp', 'pod', 'deployment', 'service', 'namespace']).agg(
           rss=('rss_bytes', px.mean),
           vsize=('vsize_bytes', px.mean),
           # The fields below are counters, so we take the min and the max to subtract them.
@@ -176,7 +181,7 @@ presetScripts:
       df.total_disk_write_throughput = (df.wchar_bytes_max - df.wchar_bytes_min) / window_ns
 
       # Then aggregate process individual process metrics.
-      df = df.groupby(['timestamp', 'container',  'pod', 'service', 'namespace']).agg(
+      df = df.groupby(['timestamp', 'container',  'pod', 'deployment', 'service', 'namespace']).agg(
           cpu_ktime_ns=('cpu_ktime_ns', px.sum),
           cpu_utime_ns=('cpu_utime_ns', px.sum),
           actual_disk_read_throughput=('actual_disk_read_throughput', px.sum),
@@ -206,6 +211,7 @@ presetScripts:
             'k8s.container.name': df.container,
             'service.instance.id': df.pod,
             'k8s.pod.name': df.pod,
+            'k8s.deployment.name': df.deployment,
             'k8s.namespace.name': df.namespace,
             'px.cluster.id': df.cluster_id,
             'k8s.cluster.name': df.cluster_name,
