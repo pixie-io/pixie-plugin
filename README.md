@@ -70,6 +70,7 @@ The presetScripts object should adhere to the following format:
 | description       | string   | false        | A description about what the script exports, and the extra functionality it powers.                                                   |
 | script            | string   | true         | The PxL script.                                                                                                                       |
 | defaultFrequencyS | int      | false        | The default interval, in seconds, at which the script should be rerun. The user has the ability to change this interval if they wish. |
+| defaultDisabled   | boolean  | false        | Whether the preset script should be disabled by default.                                                                              |
 
 ## Testing a Plugin
 
