@@ -533,11 +533,6 @@ presetScripts:
       )
 
       df.record_bytes_total = px.Bytes(df.record_bytes_total)
-
-      window_s = px.DurationNanos(px.parse_time(px.plugin.end_time) - px.parse_time(px.plugin.start_time)) / 1e9
-
-      df.record_bytes_per_second = df.record_bytes_total / window_s
-
       df.namespace = px.pod_name_to_namespace(df.pod)
       df.pixie = 'pixie'
       df.cluster_id = px.vizier_id()
@@ -575,10 +570,9 @@ presetScripts:
                       },
                   ),
                   px.otel.metric.Gauge(
-                      name='kafka.bytesPerSecond',
+                      name='kafka.bytes',
                       description='The total number of bytes sent or received through Kafka requests',
-                      value=otel_df.record_bytes_per_second,
-                      unit='bytes/s'
+                      value=otel_df.record_bytes_total,
                   ),
               ],
           ),
