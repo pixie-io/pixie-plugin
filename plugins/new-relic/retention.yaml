@@ -425,7 +425,7 @@ presetScripts:
           return df[[
               'time_', 'upid', 'req_cmd', 'client_id', 'latency', 'pod',
               'namespace', 'source', 'destination', 'service', 'topic_name',
-              'partition_idx', 'message_size',
+              'partition_idx', 'message_size', 'error_code',
           ]]
 
 
@@ -438,6 +438,12 @@ presetScripts:
           producer_df = df[df.req_cmd == 0]
 
           producer_df = unnest_topics_and_partitions(producer_df, 'req_body')
+          producer_df.req_partition_idx = df.partition_idx
+          # Error code is always in the response.
+          producer_df = unnest_topics_and_partitions(producer_df, 'resp')
+
+          producer_df.error_code = px.pluck(producer_df.partition, 'error_code')
+          producer_df = producer_df[producer_df.partition_idx == producer_df.req_partition_idx]
           return select_columns(producer_df)
 
 
@@ -450,6 +456,7 @@ presetScripts:
           consumer_df = df[df.req_cmd == 1]
 
           consumer_df = unnest_topics_and_partitions(consumer_df, 'resp')
+          consumer_df.error_code = px.pluck(consumer_df.partition, 'error_code')
           return select_columns(consumer_df)
 
 
@@ -461,9 +468,9 @@ presetScripts:
           # Exclude Produce (cmd 0) and Fetch (cmd 1) commands.
           df = df[df.req_cmd > 1]
           df.topic_name = ''
-          df.partition = ''
           df.partition_idx = ''
           df.message_size = 0
+          df.error_code = '0'
           return select_columns(df)
 
 
@@ -506,7 +513,6 @@ presetScripts:
 
           return df
 
-
       df = px.DataFrame(table='kafka_events.beta', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
       df.namespace = df.ctx['namespace']
 
@@ -521,8 +527,9 @@ presetScripts:
 
       # Get throughput by adding size of message_sets. Note that this is the total size of the
       # message batches, not the total number of bytes sent or received.
+      df.has_error = df.error_code != 'kNone' and df.error_code != '0'
       df = df.groupby(
-          ['service', 'pod', 'partition_idx', 'client_id', 'topic_name', 'req_cmd', 'destination'],
+          ['has_error', 'service', 'pod', 'partition_idx', 'client_id', 'topic_name', 'req_cmd', 'destination'],
       ).agg(
           record_bytes_total=('message_size', px.sum),
           latency_count=('message_size', px.count),
@@ -556,6 +563,7 @@ presetScripts:
                   'kafka.client_id': otel_df.client_id,
                   'kafka.topic_name': otel_df.topic_name,
                   'kafka.req_cmd': otel_df.req_cmd,
+                  'kafka.has_error': otel_df.has_error,
               },
               data=[
                   px.otel.metric.Summary(
