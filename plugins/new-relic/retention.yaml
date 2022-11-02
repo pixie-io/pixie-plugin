@@ -638,21 +638,21 @@ presetScripts:
           return df[[
               'calling_pod',
               'calling_service',
-          'client_id',
-          'destination',
+              'client_id',
+              'destination',
               'kafka_pod',
               'kafka_service',
-          'error_code',
-          'latency',
-          'message_size',
+              'error_code',
+              'latency',
+              'message_size',
               'namespace',
               'partition_idx',
               'partition',
               'req_body',
-          'req_cmd',
+              'req_cmd',
               'resp',
               'time_',
-          'topic_name',
+              'topic_name',
           ]]
 
 
