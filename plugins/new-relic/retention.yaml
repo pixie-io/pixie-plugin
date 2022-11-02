@@ -372,3 +372,216 @@ presetScripts:
         ),
       )
     defaultFrequencyS: 10
+  - name: "Kafka Metrics"
+    description: "This script generates metrics from Kafka and sends them to New Relic's OTel endpoint."
+    defaultDisabled: true
+    defaultFrequencyS: 10
+    script: |
+      import px
+
+      def unnest_topics_and_partitions(df, body_field: str):
+          '''
+          Unnest the topics and partitions from a data frame. body_field is the target column to unnest,
+          usually 'req_body' or 'resp'.
+          '''
+          # Get topic_name
+          df.topics = px.pluck(df[body_field], 'topics')
+          df = json_unnest_first5(df, 'topic', 'topics')
+          df = df[df.topic != '']
+          df.topic_name = px.pluck(df.topic, 'name')
+
+          # Get partition_idx
+          df.partitions = px.pluck(df.topic, 'partitions')
+          df = json_unnest_first5(df, 'partition', 'partitions')
+          df = df[df.partition != '']
+          df.partition_idx = px.pluck(df.partition, 'index')
+
+          # Get message_size
+          df.message_set = px.pluck(df.partition, 'message_set')
+          df.message_size = px.pluck(df.message_set, 'size')
+          df.message_size = px.atoi(df.message_size, 0)
+          return df
+
+
+      def json_unnest_first5(df, dest_col, src_col):
+          '''Unnest the first 5 values in a JSON array in the src_col, and put it in the
+          dest_col.
+          '''
+          df0 = json_array_index(df, dest_col, src_col, 0)
+          df1 = json_array_index(df, dest_col, src_col, 1)
+          df2 = json_array_index(df, dest_col, src_col, 2)
+          df3 = json_array_index(df, dest_col, src_col, 3)
+          df4 = json_array_index(df, dest_col, src_col, 4)
+          df = df0.append(df1).append(df2).append(df3).append(df4)
+          return df
+
+
+      def json_array_index(df, dest_col, src_col, idx):
+          df[dest_col] = px.pluck_array(df[src_col], idx)
+          return df
+
+
+      def select_columns(df):
+          return df[[
+              'time_', 'upid', 'req_cmd', 'client_id', 'latency', 'pod',
+              'namespace', 'source', 'destination', 'service', 'topic_name',
+              'partition_idx', 'message_size', 'error_code',
+          ]]
+
+
+      def get_produce_records(df):
+          '''
+          Get all the produce records and filter by a specified topic. If topic is empty, all
+          produce records are retained.
+          '''
+          # Produce requests have command 0.
+          producer_df = df[df.req_cmd == 0]
+
+          producer_df = unnest_topics_and_partitions(producer_df, 'req_body')
+          producer_df.req_partition_idx = df.partition_idx
+          # Error code is always in the response.
+          producer_df = unnest_topics_and_partitions(producer_df, 'resp')
+
+          producer_df.error_code = px.pluck(producer_df.partition, 'error_code')
+          producer_df = producer_df[producer_df.partition_idx == producer_df.req_partition_idx]
+          return select_columns(producer_df)
+
+
+      def get_fetch_records(df):
+          '''
+          Get all the fetch records and filter by a specified topic. If topic is empty, all
+          fetch records are retained.
+          '''
+          # Fetch requests have command 1.
+          consumer_df = df[df.req_cmd == 1]
+
+          consumer_df = unnest_topics_and_partitions(consumer_df, 'resp')
+          consumer_df.error_code = px.pluck(consumer_df.partition, 'error_code')
+          return select_columns(consumer_df)
+
+
+      def get_remaining_records(df):
+          '''
+          Get all the fetch records and filter by a specified topic. If topic is empty, all
+          fetch records are retained.
+          '''
+          # Exclude Produce (cmd 0) and Fetch (cmd 1) commands.
+          df = df[df.req_cmd > 1]
+          df.topic_name = ''
+          df.partition_idx = ''
+          df.message_size = 0
+          df.error_code = '0'
+          return select_columns(df)
+
+
+      def add_source_dest_columns(df):
+          '''Add source and destination columns for the Kafka request.
+
+          Kafka requests are traced server-side (trace_role==2), unless the server is
+          outside of the cluster in which case the request is traced client-side (trace_role==1).
+
+          When trace_role==2, the Kafka request source is the remote_addr column
+          and destination is the pod column. When trace_role==1, the Kafka request
+          source is the pod column and the destination is the remote_addr column.
+
+          Input DataFrame must contain trace_role, upid, remote_addr columns.
+          '''
+          df.pod = df.ctx['pod']
+          df.namespace = df.ctx['namespace']
+
+          # If remote_addr is a pod, get its name. If not, use IP address.
+          df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
+          df.is_ra_pod = df.ra_pod != ''
+          df.ra_name = px.select(df.is_ra_pod, df.ra_pod, df.remote_addr)
+
+          df.is_server_tracing = df.trace_role == 2
+          df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
+          df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
+
+          # Set source and destination based on trace_role.
+          df.source = px.select(df.is_server_tracing, df.ra_name, df.pod)
+          df.destination = px.select(df.is_server_tracing, df.pod, df.ra_name)
+
+          # Filter out messages with empty source / destination.
+          df = df[df.source != '']
+          df = df[df.destination != '']
+          df.kafka_service = px.Service(px.pod_name_to_service_name(df.destination))
+          df.service = px.Service(px.pod_name_to_service_name(df.source))
+          df.pod = df.source
+
+          df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
+
+          return df
+
+      df = px.DataFrame(table='kafka_events.beta', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
+      df.namespace = df.ctx['namespace']
+
+      df = add_source_dest_columns(df)
+      producer_df = get_produce_records(df)
+      consumer_df = get_fetch_records(df)
+      remaining_df = get_remaining_records(df)
+      df = producer_df.append([consumer_df, remaining_df])
+
+      # Convert latency from ns units to ms units.
+      df.latency = df.latency / (1000.0 * 1000.0)
+
+      # Get throughput by adding size of message_sets. Note that this is the total size of the
+      # message batches, not the total number of bytes sent or received.
+      df.has_error = df.error_code != 'kNone' and df.error_code != '0'
+      df = df.groupby(
+          ['has_error', 'service', 'pod', 'partition_idx', 'client_id', 'topic_name', 'req_cmd', 'destination'],
+      ).agg(
+          record_bytes_total=('message_size', px.sum),
+          latency_count=('message_size', px.count),
+          latency_sum=('latency', px.sum),
+          latency_max=('latency', px.max),
+          latency_min=('latency', px.min),
+          time_=('time_', px.max),
+      )
+
+      df.record_bytes_total = px.Bytes(df.record_bytes_total)
+      df.namespace = px.pod_name_to_namespace(df.pod)
+      df.pixie = 'pixie'
+      df.cluster_id = px.vizier_id()
+      df.cluster_name = px.vizier_name()
+      df.req_cmd = px.kafka_api_key_name(df.req_cmd)
+
+      otel_df = df
+      px.export(
+          otel_df,
+          px.otel.Data(
+              resource={
+                  'service.name': otel_df.service,
+                  'service.instance.id': otel_df.pod,
+                  'k8s.pod.name': otel_df.pod,
+                  'k8s.namespace.name': otel_df.namespace,
+                  'k8s.cluster.name': otel_df.cluster_name,
+                  'px.cluster.id': otel_df.cluster_id,
+                  'instrumentation.provider': otel_df.pixie,
+                  'kafka.broker.pod': otel_df.destination,
+                  'kafka.partition_idx': otel_df.partition_idx,
+                  'kafka.client_id': otel_df.client_id,
+                  'kafka.topic_name': otel_df.topic_name,
+                  'kafka.req_cmd': otel_df.req_cmd,
+                  'kafka.has_error': otel_df.has_error,
+              },
+              data=[
+                  px.otel.metric.Summary(
+                      name='kafka.latency',
+                      description='Summary of latency for Kafka requests',
+                      count=otel_df.latency_count,
+                      sum=otel_df.latency_sum,
+                      unit='ms',
+                      quantile_values={
+                          0.0: otel_df.latency_min,
+                          1.0: otel_df.latency_max,
+                      },
+                  ),
+                  px.otel.metric.Gauge(
+                      name='kafka.bytes',
+                      description='The total number of bytes sent or received through Kafka requests',
+                      value=otel_df.record_bytes_total,
+                  ),
+              ],
+          ),
+      )
