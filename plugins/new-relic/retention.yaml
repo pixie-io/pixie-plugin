@@ -475,7 +475,7 @@ presetScripts:
           return select_columns(df)
 
       def remove_ns_prefix(column):
-          return px.replace('.*/', column, '')
+          return px.replace('[a-z0-9\-]*/', column, '')
 
       def add_source_dest_columns(df):
           df.pod = df.ctx['pod']
@@ -707,7 +707,7 @@ presetScripts:
           return select_columns(df)
 
       def remove_ns_prefix(column):
-          return px.replace('.*/', column, '')
+          return px.replace('[a-z0-9\-]*/', column, '')
 
       def add_source_dest_columns(df):
           df.pod = df.ctx['pod']
