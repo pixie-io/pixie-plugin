@@ -810,3 +810,189 @@ presetScripts:
               ],
           ),
       )
+  - name: Redis Spans
+    defaultDisabled: true
+    defaultFrequencyS: 10
+    script: |
+      import px
+
+      def add_source_dest_columns(df):
+          df.pod = df.ctx['pod']
+          df.namespace = df.ctx['namespace']
+
+          # If remote_addr is a pod, get its name. If not, use IP address.
+          df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
+          df.is_ra_pod = df.ra_pod != ''
+          df.ra_name = px.select(df.is_ra_pod, df.ra_pod, df.remote_addr)
+
+          df.is_server_tracing = df.trace_role == 2
+          df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
+          df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
+
+          # Set client and server based on trace_role.
+          df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
+          df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
+
+          df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
+          df.source_service = px.pod_name_to_service_name(df.source_pod)
+          df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          # If the destination service is missing then try the nslookup
+          df.destination_service = px.select(
+              df.destination_service != '',
+              df.destination_service,
+              px.nslookup(df.remote_addr),
+          )
+          # If the destination service is still missing then set the remote_addr
+          df.destination_service = px.select(
+              df.destination_service != '',
+              df.destination_service,
+              df.remote_addr,
+          )
+          return df
+
+
+      df = px.DataFrame('redis_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
+      df = add_source_dest_columns(df)
+
+      df.start_time = df.time_ - df.latency
+      df.latency = df.latency / (1000 * 1000)
+      df.req_bytes = px.length(df.req_args)
+      df.resp_bytes = px.length(df.resp)
+      df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
+      df.source_namespace = px.pod_name_to_namespace(df.source_pod)
+      df.pixie = 'pixie'
+      df.cluster_id = px.vizier_id()
+      df.cluster_name = px.vizier_name()
+      df.destination_service = px.Service(df.destination_service)
+
+      otel_df = df
+      px.export(otel_df, px.otel.Data(
+        resource={
+          'service.name': otel_df.source_service,
+          'service.instance.id': otel_df.source_pod,
+          'k8s.namespace.name': otel_df.source_namespace,
+          'redis.service.name': otel_df.destination_service,
+          'redis.pod.name': otel_df.destination_pod,
+          'redis.namespace.name': otel_df.destination_namespace,
+          'redis.req_cmd': otel_df.req_cmd,
+          'k8s.cluster.name': otel_df.cluster_name,
+          'px.cluster.id': otel_df.cluster_id,
+          'instrumentation.provider': otel_df.pixie,
+        },
+        data=[
+          px.otel.trace.Span(
+            name=df.req_cmd,
+            start_time=df.start_time,
+            end_time=df.time_,
+            kind=px.otel.trace.SPAN_KIND_CLIENT,
+            attributes={
+              'redis.req_bytes': otel_df.req_bytes,
+              'redis.resp_bytes': otel_df.resp_bytes,
+              'redis.resp_latency': otel_df.latency,
+              'redis.req_args': otel_df.req_args,
+              'redis.resp': otel_df.resp,
+            },
+          )
+        ]
+      ))
+  - name: Redis Metrics
+    defaultDisabled: true
+    defaultFrequencyS: 10
+    script: |
+      import px
+
+      def add_source_dest_columns(df):
+          df.pod = df.ctx['pod']
+          df.namespace = df.ctx['namespace']
+
+          # If remote_addr is a pod, get its name. If not, use IP address.
+          df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
+          df.is_ra_pod = df.ra_pod != ''
+          df.ra_name = px.select(df.is_ra_pod, df.ra_pod, df.remote_addr)
+
+          df.is_server_tracing = df.trace_role == 2
+          df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
+          df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
+
+          # Set client and server based on trace_role.
+          df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
+          df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
+
+          df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
+          df.source_service = px.pod_name_to_service_name(df.source_pod)
+          df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          # If the destination service is missing then try the nslookup
+          df.destination_service = px.select(
+              df.destination_service != '',
+              df.destination_service,
+              px.nslookup(df.remote_addr),
+          )
+          # If the destination service is still missing then set the remote_addr
+          df.destination_service = px.select(
+              df.destination_service != '',
+              df.destination_service,
+              df.remote_addr,
+          )
+          return df
+
+
+      df = px.DataFrame('redis_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
+      df = add_source_dest_columns(df)
+
+      df.latency = df.latency / (1000 * 1000)
+      df.req_bytes = px.length(df.req_args)
+      df.resp_bytes = px.length(df.resp)
+      df = df.groupby(['req_cmd', 'source_pod', 'source_service', 'destination_pod', 'destination_service']).agg(
+          latency_count=('latency', px.count),
+          latency_min=('latency', px.min),
+          latency_max=('latency', px.max),
+          latency_sum=('latency', px.sum),
+          time_=('time_', px.max),
+          req_bytes=('req_bytes', px.sum),
+          resp_bytes=('resp_bytes', px.sum),
+      )
+
+      df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
+      df.source_namespace = px.pod_name_to_namespace(df.source_pod)
+      df.pixie = 'pixie'
+      df.cluster_id = px.vizier_id()
+      df.cluster_name = px.vizier_name()
+      df.destination_service = px.Service(df.destination_service)
+
+      otel_df = df
+      px.export(otel_df, px.otel.Data(
+        resource={
+          'service.name': otel_df.source_service,
+          'service.instance.id': otel_df.source_pod,
+          'k8s.namespace.name': otel_df.source_namespace,
+          'redis.service.name': otel_df.destination_service,
+          'redis.pod.name': otel_df.destination_pod,
+          'redis.namespace.name': otel_df.destination_namespace,
+          'redis.req_cmd': otel_df.req_cmd,
+          'k8s.cluster.name': otel_df.cluster_name,
+          'px.cluster.id': otel_df.cluster_id,
+          'instrumentation.provider': otel_df.pixie,
+        },
+        data=[
+          px.otel.metric.Summary(
+              name='redis.latency',
+              count=otel_df.latency_count,
+              sum=otel_df.latency_sum,
+              unit='ms',
+              quantile_values={
+                  0.0: otel_df.latency_min,
+                  1.0: otel_df.latency_max,
+              },
+          ),
+          px.otel.metric.Gauge(
+            name='redis.req_bytes',
+            description='',
+            value=otel_df.req_bytes,
+          ),
+          px.otel.metric.Gauge(
+            name='redis.resp_bytes',
+            description='',
+            value=otel_df.resp_bytes,
+          )
+        ]
+      ))
