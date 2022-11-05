@@ -398,7 +398,7 @@ presetScripts:
             'postgres.pod.name': df.destination_pod,
             'postgres.namespace.name': df.destination_namespace,
             'k8s.cluster.name': df.cluster_name,
-            'pixie.cluster.id': df.cluster_id,
+            'px.cluster.id': df.cluster_id,
             'instrumentation.provider': df.pixie,
           },
           data=[
