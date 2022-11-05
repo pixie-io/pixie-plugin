@@ -811,10 +811,14 @@ presetScripts:
           ),
       )
   - name: Redis Spans
+    description: This script generates OpenTelemetry spans for Redis commands.
     defaultDisabled: true
     defaultFrequencyS: 10
     script: |
       import px
+
+      def remove_ns_prefix(column):
+          return px.replace('[a-z0-9\-]*/', column, '')
 
       def add_source_dest_columns(df):
           df.pod = df.ctx['pod']
@@ -836,6 +840,14 @@ presetScripts:
           df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
           df.source_service = px.pod_name_to_service_name(df.source_pod)
           df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
+          df.source_namespace = px.pod_name_to_namespace(df.source_pod)
+
+          df.source_service = remove_ns_prefix(df.source_service)
+          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_pod = remove_ns_prefix(df.source_pod)
+          df.destination_pod = remove_ns_prefix(df.destination_pod)
+
           # If the destination service is missing then try the nslookup
           df.destination_service = px.select(
               df.destination_service != '',
@@ -858,12 +870,9 @@ presetScripts:
       df.latency = df.latency / (1000 * 1000)
       df.req_bytes = px.length(df.req_args)
       df.resp_bytes = px.length(df.resp)
-      df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
-      df.source_namespace = px.pod_name_to_namespace(df.source_pod)
       df.pixie = 'pixie'
       df.cluster_id = px.vizier_id()
       df.cluster_name = px.vizier_name()
-      df.destination_service = px.Service(df.destination_service)
 
       otel_df = df
       px.export(otel_df, px.otel.Data(
@@ -896,10 +905,14 @@ presetScripts:
         ]
       ))
   - name: Redis Metrics
+    description: This script exports Redis metrics to New Relic.
     defaultDisabled: true
     defaultFrequencyS: 10
     script: |
       import px
+
+      def remove_ns_prefix(column):
+          return px.replace('[a-z0-9\-]*/', column, '')
 
       def add_source_dest_columns(df):
           df.pod = df.ctx['pod']
@@ -921,6 +934,14 @@ presetScripts:
           df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
           df.source_service = px.pod_name_to_service_name(df.source_pod)
           df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
+          df.source_namespace = px.pod_name_to_namespace(df.source_pod)
+
+          df.source_service = remove_ns_prefix(df.source_service)
+          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_pod = remove_ns_prefix(df.source_pod)
+          df.destination_pod = remove_ns_prefix(df.destination_pod)
+
           # If the destination service is missing then try the nslookup
           df.destination_service = px.select(
               df.destination_service != '',
@@ -935,14 +956,13 @@ presetScripts:
           )
           return df
 
-
       df = px.DataFrame('redis_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
       df = add_source_dest_columns(df)
 
       df.latency = df.latency / (1000 * 1000)
       df.req_bytes = px.length(df.req_args)
       df.resp_bytes = px.length(df.resp)
-      df = df.groupby(['req_cmd', 'source_pod', 'source_service', 'destination_pod', 'destination_service']).agg(
+      df = df.groupby(['req_cmd', 'source_pod', 'source_service', 'source_namespace', 'destination_pod', 'destination_service', 'destination_namespace']).agg(
           latency_count=('latency', px.count),
           latency_min=('latency', px.min),
           latency_max=('latency', px.max),
@@ -952,12 +972,9 @@ presetScripts:
           resp_bytes=('resp_bytes', px.sum),
       )
 
-      df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
-      df.source_namespace = px.pod_name_to_namespace(df.source_pod)
       df.pixie = 'pixie'
       df.cluster_id = px.vizier_id()
       df.cluster_name = px.vizier_name()
-      df.destination_service = px.Service(df.destination_service)
 
       otel_df = df
       px.export(otel_df, px.otel.Data(
