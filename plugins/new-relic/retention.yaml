@@ -407,7 +407,6 @@ presetScripts:
               kind=px.otel.trace.SPAN_KIND_CLIENT,
               attributes={
                 'db.system': df.db_system,
-                ''
               },
             ),
           ],
