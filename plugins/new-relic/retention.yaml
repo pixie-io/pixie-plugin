@@ -318,7 +318,7 @@ presetScripts:
   - name: "PostgreSQL Metrics"
     description: "This script sends PostgreSQL metrics to New Relic's OTel endpoint."
     script: |
-      #px:set max_output_rows_per_table=500
+      #px:set max_output_rows_per_table=10000
 
       import px
 
