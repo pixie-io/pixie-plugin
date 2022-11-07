@@ -815,6 +815,7 @@ presetScripts:
     defaultDisabled: true
     defaultFrequencyS: 10
     script: |
+      #px:set max_output_rows_per_table=500
       import px
 
       def remove_ns_prefix(column):
@@ -909,6 +910,7 @@ presetScripts:
     defaultDisabled: true
     defaultFrequencyS: 10
     script: |
+      #px:set max_output_rows_per_table=10000
       import px
 
       def remove_ns_prefix(column):
