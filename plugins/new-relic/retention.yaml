@@ -576,6 +576,7 @@ presetScripts:
                 'mysql.req_bytes': df.req_bytes,
                 'mysql.resp_bytes': df.resp_bytes,
                 'mysql.resp_latency': df.latency,
+                'mysql.resp_status': df.resp_status,
                 'db.system': df.db_system,
               },
             ),
