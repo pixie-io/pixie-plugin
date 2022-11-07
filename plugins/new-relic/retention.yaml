@@ -373,7 +373,8 @@ presetScripts:
       df.latency = df.latency / (1000 * 1000)
       df.req_bytes = px.length(df.req)
       df.resp_bytes = px.length(df.resp)
-      df = df.groupby(['source_pod', 'source_service', 'source_namespace', 'destination_pod', 'destination_service', 'destination_namespace']).agg(
+      df = df.groupby(['source_pod', 'source_service', 'source_namespace', 'destination_pod', 'destination_service',
+                         'destination_namespace', 'req_cmd']).agg(
         latency_count=('latency', px.count),
         latency_min=('latency', px.min),
         latency_max=('latency', px.max),
@@ -397,6 +398,7 @@ presetScripts:
             'postgres.service.name': df.destination_service,
             'postgres.pod.name': df.destination_pod,
             'postgres.namespace.name': df.destination_namespace,
+            'postgres.req_cmd': df.req_cmd,
             'k8s.cluster.name': df.cluster_name,
             'px.cluster.id': df.cluster_id,
             'instrumentation.provider': df.pixie,
@@ -414,14 +416,14 @@ presetScripts:
               },
             ),
             px.otel.metric.Gauge(
-            name='postgres.req_bytes',
-            description='',
-            value=df.req_bytes,
+              name='postgres.req_bytes',
+              description='',
+              value=df.req_bytes,
             ),
             px.otel.metric.Gauge(
-            name='postgres.resp_bytes',
-            description='',
-            value=df.resp_bytes,
+              name='postgres.resp_bytes',
+              description='',
+              value=df.resp_bytes,
             )
           ]
         ),
