@@ -346,6 +346,10 @@ presetScripts:
               kind=px.otel.trace.SPAN_KIND_CLIENT,
               attributes={
                 'db.system': df.db_system,
+                'postgres.req_cmd': df.req_cmd,
+                'postgres.req': df.req,
+                'postgres.resp': df.resp,
+                'postgres.resp_latency': df.latency,
               },
             ),
           ],
@@ -403,6 +407,7 @@ presetScripts:
               kind=px.otel.trace.SPAN_KIND_CLIENT,
               attributes={
                 'db.system': df.db_system,
+                ''
               },
             ),
           ],
