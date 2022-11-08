@@ -541,8 +541,7 @@ presetScripts:
       df.query = px.pluck(df.normed_query_struct, 'query')
       df = df[df.query != ""]
 
-      start_time = df.time_ - df.latency
-      end_time = df.time_
+      df.start_time = df.time_ - df.latency
       df.latency = df.latency / (1000 * 1000)
       df.req_bytes = px.length(df.req_body)
       df.resp_bytes = px.length(df.resp_body)
@@ -569,7 +568,7 @@ presetScripts:
             px.otel.trace.Span(
               name=df.query,
               start_time=df.start_time,
-              end_time=df.end_time,
+              end_time=df.time_,
               kind=px.otel.trace.SPAN_KIND_CLIENT,
               attributes={
                 'mysql.req_cmd': df.req_cmd,
