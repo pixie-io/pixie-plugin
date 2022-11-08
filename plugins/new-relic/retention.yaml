@@ -545,7 +545,7 @@ presetScripts:
       df.latency = df.latency / (1000 * 1000)
       df.req_bytes = px.length(df.req_body)
       df.resp_bytes = px.length(df.resp_body)
-
+      df.req_cmd = px.mysql_command_name(df.req_cmd)
       df.cluster_name = px.vizier_name()
       df.cluster_id = px.vizier_id()
       df.pixie = 'pixie'
