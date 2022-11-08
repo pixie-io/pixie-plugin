@@ -317,8 +317,7 @@ presetScripts:
       df.query = px.pluck(df.normed_query_struct, 'query')
       df = df[df.query != ""]
 
-      df.start_time = df.time_
-      df.end_time = df.time_ + df.latency
+      df.start_time = df.time_ - df.latency
 
       df.cluster_name = px.vizier_name()
       df.cluster_id = px.vizier_id()
@@ -342,7 +341,7 @@ presetScripts:
             px.otel.trace.Span(
               name=df.query,
               start_time=df.start_time,
-              end_time=df.end_time,
+              end_time=df.time_,
               kind=px.otel.trace.SPAN_KIND_CLIENT,
               attributes={
                 'db.system': df.db_system,
