@@ -875,19 +875,18 @@ presetScripts:
       df.cluster_id = px.vizier_id()
       df.cluster_name = px.vizier_name()
 
-      otel_df = df
-      px.export(otel_df, px.otel.Data(
+      px.export(df, px.otel.Data(
         resource={
-          'service.name': otel_df.source_service,
-          'service.instance.id': otel_df.source_pod,
-          'k8s.namespace.name': otel_df.source_namespace,
-          'redis.service.name': otel_df.destination_service,
-          'redis.pod.name': otel_df.destination_pod,
-          'redis.namespace.name': otel_df.destination_namespace,
-          'redis.req_cmd': otel_df.req_cmd,
-          'k8s.cluster.name': otel_df.cluster_name,
-          'px.cluster.id': otel_df.cluster_id,
-          'instrumentation.provider': otel_df.pixie,
+          'service.name': df.source_service,
+          'service.instance.id': df.source_pod,
+          'k8s.namespace.name': df.source_namespace,
+          'redis.service.name': df.destination_service,
+          'redis.pod.name': df.destination_pod,
+          'redis.namespace.name': df.destination_namespace,
+          'redis.req_cmd': df.req_cmd,
+          'k8s.cluster.name': df.cluster_name,
+          'px.cluster.id': df.cluster_id,
+          'instrumentation.provider': df.pixie,
         },
         data=[
           px.otel.trace.Span(
@@ -896,11 +895,11 @@ presetScripts:
             end_time=df.time_,
             kind=px.otel.trace.SPAN_KIND_CLIENT,
             attributes={
-              'redis.req_bytes': otel_df.req_bytes,
-              'redis.resp_bytes': otel_df.resp_bytes,
-              'redis.resp_latency': otel_df.latency,
-              'redis.req_args': otel_df.req_args,
-              'redis.resp': otel_df.resp,
+              'redis.req_bytes': df.req_bytes,
+              'redis.resp_bytes': df.resp_bytes,
+              'redis.resp_latency': df.latency,
+              'redis.req_args': df.req_args,
+              'redis.resp': df.resp,
             },
           )
         ]
@@ -978,40 +977,39 @@ presetScripts:
       df.cluster_id = px.vizier_id()
       df.cluster_name = px.vizier_name()
 
-      otel_df = df
-      px.export(otel_df, px.otel.Data(
+      px.export(df, px.otel.Data(
         resource={
-          'service.name': otel_df.source_service,
-          'service.instance.id': otel_df.source_pod,
-          'k8s.namespace.name': otel_df.source_namespace,
-          'redis.service.name': otel_df.destination_service,
-          'redis.pod.name': otel_df.destination_pod,
-          'redis.namespace.name': otel_df.destination_namespace,
-          'redis.req_cmd': otel_df.req_cmd,
-          'k8s.cluster.name': otel_df.cluster_name,
-          'px.cluster.id': otel_df.cluster_id,
-          'instrumentation.provider': otel_df.pixie,
+          'service.name': df.source_service,
+          'service.instance.id': df.source_pod,
+          'k8s.namespace.name': df.source_namespace,
+          'redis.service.name': df.destination_service,
+          'redis.pod.name': df.destination_pod,
+          'redis.namespace.name': df.destination_namespace,
+          'redis.req_cmd': df.req_cmd,
+          'k8s.cluster.name': df.cluster_name,
+          'px.cluster.id': df.cluster_id,
+          'instrumentation.provider': df.pixie,
         },
         data=[
           px.otel.metric.Summary(
               name='redis.latency',
-              count=otel_df.latency_count,
-              sum=otel_df.latency_sum,
+              count=df.latency_count,
+              sum=df.latency_sum,
               unit='ms',
               quantile_values={
-                  0.0: otel_df.latency_min,
-                  1.0: otel_df.latency_max,
+                  0.0: df.latency_min,
+                  1.0: df.latency_max,
               },
           ),
           px.otel.metric.Gauge(
             name='redis.req_bytes',
             description='',
-            value=otel_df.req_bytes,
+            value=df.req_bytes,
           ),
           px.otel.metric.Gauge(
             name='redis.resp_bytes',
             description='',
-            value=otel_df.resp_bytes,
+            value=df.resp_bytes,
           )
         ]
       ))
