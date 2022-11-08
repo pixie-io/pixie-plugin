@@ -541,8 +541,8 @@ presetScripts:
       df.query = px.pluck(df.normed_query_struct, 'query')
       df = df[df.query != ""]
 
-      df.start_time = df.time_
-      df.end_time = df.time_ + df.latency
+      start_time = df.time_ - df.latency
+      end_time = df.time_
       df.latency = df.latency / (1000 * 1000)
       df.req_bytes = px.length(df.req_body)
       df.resp_bytes = px.length(df.resp_body)
