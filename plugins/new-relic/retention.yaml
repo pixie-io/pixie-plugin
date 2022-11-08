@@ -423,9 +423,10 @@ presetScripts:
 
       def select_columns(df):
           return df[[
-              'time_', 'upid', 'req_cmd', 'client_id', 'latency', 'pod',
-              'namespace', 'source', 'destination', 'service', 'topic_name',
-              'partition_idx', 'message_size', 'error_code',
+              'time_', 'upid', 'req_cmd', 'client_id', 'latency',
+              'source_pod', 'destination_pod', 'source_service', 'destination_service',
+              'source_namespace', 'destination_namespace',
+              'topic_name', 'partition_idx', 'message_size', 'error_code',
           ]]
 
 
@@ -473,19 +474,10 @@ presetScripts:
           df.error_code = '0'
           return select_columns(df)
 
+      def remove_ns_prefix(column):
+          return px.replace('[a-z0-9\-]*/', column, '')
 
       def add_source_dest_columns(df):
-          '''Add source and destination columns for the Kafka request.
-
-          Kafka requests are traced server-side (trace_role==2), unless the server is
-          outside of the cluster in which case the request is traced client-side (trace_role==1).
-
-          When trace_role==2, the Kafka request source is the remote_addr column
-          and destination is the pod column. When trace_role==1, the Kafka request
-          source is the pod column and the destination is the remote_addr column.
-
-          Input DataFrame must contain trace_role, upid, remote_addr columns.
-          '''
           df.pod = df.ctx['pod']
           df.namespace = df.ctx['namespace']
 
@@ -498,19 +490,33 @@ presetScripts:
           df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
           df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
 
-          # Set source and destination based on trace_role.
-          df.source = px.select(df.is_server_tracing, df.ra_name, df.pod)
-          df.destination = px.select(df.is_server_tracing, df.pod, df.ra_name)
-
-          # Filter out messages with empty source / destination.
-          df = df[df.source != '']
-          df = df[df.destination != '']
-          df.kafka_service = px.Service(px.pod_name_to_service_name(df.destination))
-          df.service = px.Service(px.pod_name_to_service_name(df.source))
-          df.pod = df.source
+          # Set client and server based on trace_role.
+          df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
+          df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
 
           df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
+          df.source_service = px.pod_name_to_service_name(df.source_pod)
+          df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
+          df.source_namespace = px.pod_name_to_namespace(df.source_pod)
 
+          df.source_service = remove_ns_prefix(df.source_service)
+          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_pod = remove_ns_prefix(df.source_pod)
+          df.destination_pod = remove_ns_prefix(df.destination_pod)
+
+          # If the destination service is missing then try the nslookup
+          df.destination_service = px.select(
+              df.destination_service != '',
+              df.destination_service,
+              px.nslookup(df.remote_addr),
+          )
+          # If the destination service is still missing then set the remote_addr
+          df.destination_service = px.select(
+              df.destination_service != '',
+              df.destination_service,
+              df.remote_addr,
+          )
           return df
 
       df = px.DataFrame(table='kafka_events.beta', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
@@ -528,9 +534,19 @@ presetScripts:
       # Get throughput by adding size of message_sets. Note that this is the total size of the
       # message batches, not the total number of bytes sent or received.
       df.has_error = df.error_code != 'kNone' and df.error_code != '0'
-      df = df.groupby(
-          ['has_error', 'service', 'pod', 'partition_idx', 'client_id', 'topic_name', 'req_cmd', 'destination'],
-      ).agg(
+      df = df.groupby([
+          'source_namespace',
+          'destination_namespace',
+          'source_service',
+          'destination_service',
+          'source_pod',
+          'destination_pod',
+          'has_error',
+          'partition_idx',
+          'client_id',
+          'topic_name',
+          'req_cmd',
+      ]).agg(
           record_bytes_total=('message_size', px.sum),
           latency_count=('message_size', px.count),
           latency_sum=('latency', px.sum),
@@ -540,7 +556,6 @@ presetScripts:
       )
 
       df.record_bytes_total = px.Bytes(df.record_bytes_total)
-      df.namespace = px.pod_name_to_namespace(df.pod)
       df.pixie = 'pixie'
       df.cluster_id = px.vizier_id()
       df.cluster_name = px.vizier_name()
@@ -551,19 +566,21 @@ presetScripts:
           otel_df,
           px.otel.Data(
               resource={
-                  'service.name': otel_df.service,
-                  'service.instance.id': otel_df.pod,
-                  'k8s.pod.name': otel_df.pod,
-                  'k8s.namespace.name': otel_df.namespace,
+                  'service.name': otel_df.source_service,
+                  'service.instance.id': otel_df.source_pod,
+                  'k8s.pod.name': otel_df.source_pod,
+                  'k8s.namespace.name': otel_df.source_namespace,
                   'k8s.cluster.name': otel_df.cluster_name,
                   'px.cluster.id': otel_df.cluster_id,
                   'instrumentation.provider': otel_df.pixie,
-                  'kafka.broker.pod': otel_df.destination,
-                  'kafka.partition_idx': otel_df.partition_idx,
+                  'kafka.service.name': otel_df.destination_service,
+                  'kafka.broker.pod': otel_df.destination_pod,
+                  'kafka.namespace.name': otel_df.destination_namespace,
                   'kafka.client_id': otel_df.client_id,
-                  'kafka.topic_name': otel_df.topic_name,
-                  'kafka.req_cmd': otel_df.req_cmd,
                   'kafka.has_error': otel_df.has_error,
+                  'kafka.partition_idx': otel_df.partition_idx,
+                  'kafka.req_cmd': otel_df.req_cmd,
+                  'kafka.topic_name': otel_df.topic_name,
               },
               data=[
                   px.otel.metric.Summary(
@@ -636,23 +653,11 @@ presetScripts:
 
       def select_columns(df):
           return df[[
-              'calling_pod',
-              'calling_service',
-              'client_id',
-              'destination',
-              'kafka_pod',
-              'kafka_service',
-              'error_code',
-              'latency',
-              'message_size',
-              'namespace',
-              'partition_idx',
-              'partition',
-              'req_body',
-              'req_cmd',
-              'resp',
-              'time_',
-              'topic_name',
+              'time_', 'upid', 'req_cmd', 'client_id', 'latency',
+              'source_pod', 'destination_pod', 'source_service', 'destination_service',
+              'source_namespace', 'destination_namespace', 'req_body', 'resp',
+              'topic_name', 'partition_idx', 'partition',
+              'message_size', 'error_code',
           ]]
 
 
@@ -701,19 +706,10 @@ presetScripts:
           df.error_code = '0'
           return select_columns(df)
 
+      def remove_ns_prefix(column):
+          return px.replace('[a-z0-9\-]*/', column, '')
 
       def add_source_dest_columns(df):
-          '''Add source and destination columns for the Kafka request.
-
-          Kafka requests are traced server-side (trace_role==2), unless the server is
-          outside of the cluster in which case the request is traced client-side (trace_role==1).
-
-          When trace_role==2, the Kafka request source is the remote_addr column
-          and destination is the pod column. When trace_role==1, the Kafka request
-          source is the pod column and the destination is the remote_addr column.
-
-          Input DataFrame must contain trace_role, upid, remote_addr columns.
-          '''
           df.pod = df.ctx['pod']
           df.namespace = df.ctx['namespace']
 
@@ -726,20 +722,33 @@ presetScripts:
           df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
           df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
 
-          # Set source and destination based on trace_role.
-          df.source = px.select(df.is_server_tracing, df.ra_name, df.pod)
-          df.destination = px.select(df.is_server_tracing, df.pod, df.ra_name)
-
-          # Filter out messages with empty source / destination.
-          df = df[df.source != '']
-          df = df[df.destination != '']
-          df.kafka_service = px.Service(px.pod_name_to_service_name(df.destination))
-          df.calling_service = px.Service(px.pod_name_to_service_name(df.source))
-          df.calling_pod = df.source
-          df.kafka_pod = df.destination
+          # Set client and server based on trace_role.
+          df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
+          df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
 
           df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
+          df.source_service = px.pod_name_to_service_name(df.source_pod)
+          df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
+          df.source_namespace = px.pod_name_to_namespace(df.source_pod)
 
+          df.source_service = remove_ns_prefix(df.source_service)
+          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_pod = remove_ns_prefix(df.source_pod)
+          df.destination_pod = remove_ns_prefix(df.destination_pod)
+
+          # If the destination service is missing then try the nslookup
+          df.destination_service = px.select(
+              df.destination_service != '',
+              df.destination_service,
+              px.nslookup(df.remote_addr),
+          )
+          # If the destination service is still missing then set the remote_addr
+          df.destination_service = px.select(
+              df.destination_service != '',
+              df.destination_service,
+              df.remote_addr,
+          )
           return df
 
       df = px.DataFrame(table='kafka_events.beta', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
@@ -752,45 +761,41 @@ presetScripts:
       df = producer_df.append([consumer_df, remaining_df])
 
       # Convert latency from ns units to ms units.
-      df.latency_ns = df.latency
+      df.start_time = df.time_ - df.latency
       df.latency = df.latency / (1000.0 * 1000.0)
 
       # Get throughput by adding size of message_sets. Note that this is the total size of the
       # message batches, not the total number of bytes sent or received.
       df.has_error = df.error_code != 'kNone' and df.error_code != '0'
-
-      df.kafka_namespace = px.pod_name_to_namespace(df.kafka_pod)
-
-      # Restrict number of results.
-      df = df.head(1500)
-
-
-      df.start_time = df.time_ - df.latency_ns
       df.req_cmd = px.kafka_api_key_name(df.req_cmd)
       df.pixie = "pixie"
       df.cluster_id = px.vizier_id()
       df.cluster_name = px.vizier_name()
       df.span_name = df.req_cmd + '/' + df.topic_name
 
+      # Restrict number of results.
+      df = df.head(1500)
       px.export(
           df,
           px.otel.Data(
               resource={
-                  "service.name": df.kafka_service,
-                  "service.instance.id": df.kafka_pod,
-                  "k8s.pod.name": df.kafka_pod,
-                  'k8s.namespace.name': df.kafka_namespace,
-                  "k8s.cluster.name": df.cluster_name,
-                  "instrumentation.provider": df.pixie,
-                  "pixie.cluster.id": df.cluster_id,
+                  'service.name': df.source_service,
+                  'service.instance.id': df.source_pod,
+                  'k8s.pod.name': df.source_pod,
+                  'k8s.namespace.name': df.source_namespace,
+                  'k8s.cluster.name': df.cluster_name,
+                  'px.cluster.id': df.cluster_id,
                   'instrumentation.provider': df.pixie,
+                  'kafka.service.name': df.destination_service,
+                  'kafka.broker.pod': df.destination_pod,
+                  'kafka.namespace.name': df.destination_namespace,
               },
               data=[
                   px.otel.trace.Span(
                       name=df.span_name,
                       start_time=df.start_time,
                       end_time=df.time_,
-                      kind=px.otel.trace.SPAN_KIND_SERVER,
+                      kind=px.otel.trace.SPAN_KIND_CLIENT,
                       attributes={
                           "kafka.client_id": df.client_id,
                           "kafka.has_error": df.has_error,
@@ -801,11 +806,8 @@ presetScripts:
                           "kafka.req_cmd": df.req_cmd,
                           "kafka.resp": df.resp,
                           "kafka.topic": df.topic_name,
-                          "parent.k8s.pod.name": df.calling_pod,
-                          "parent.service.name": df.calling_service,
                       },
                   )
               ],
           ),
       )
-
