@@ -347,7 +347,8 @@ presetScripts:
                 'db.system': df.db_system,
                 'postgres.req_cmd': df.req_cmd,
                 'postgres.req': df.req,
-                'postgres.resp': df.resp,
+                # Disabling sending df.resp for now until illegal characters are handled.
+                # 'postgres.resp': df.resp,
                 'postgres.resp_latency': df.latency,
               },
             ),
