@@ -1657,8 +1657,8 @@ presetScripts:
             'cassandra.req_cmd': df.req_cmd,
             'cassandra.req_body': df.req_body,
             'cassandra.req_bytes': df.req_bytes,
-            'cassandra.resp_op': df.resp_op,
-            'cassandra.resp_body': df.resp_op,
+            'cassandra.resp_cmd': df.resp_op,
+            'cassandra.resp_body': df.resp_body,
             'cassandra.resp_bytes': df.resp_bytes,
             'cassandra.resp_latency': df.latency,
             'k8s.cluster.name': df.cluster_name,
@@ -1744,7 +1744,6 @@ presetScripts:
       df = px.DataFrame('cql_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
       df = add_source_dest_columns(df)
 
-      df.start_time = df.time_ - df.latency
       df.latency = df.latency / (1000 * 1000)
       df.req_bytes = px.length(df.req_body)
       df.resp_bytes = px.length(df.resp_body)
