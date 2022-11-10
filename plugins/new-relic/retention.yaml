@@ -1182,3 +1182,209 @@ presetScripts:
           )
         ]
       ))
+  - name: "DNS Metrics"
+    description: "This script calculates DNS request metrics"
+    defaultDisabled: true
+    defaultFrequencyS: 10
+    script: |
+      #px:set max_output_rows_per_table=10000
+      import px
+
+      df = px.DataFrame('dns_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
+      df = df[df.trace_role == 1]
+      df = df.drop(['trace_role'])
+
+      # Add context.
+      df.pod = df.ctx['pod']
+      df.service = df.ctx['service']
+      df.namespace = df.ctx['namespace']
+      df.node = df.ctx['node']
+      df.container = df.ctx['container']
+      df = df.drop(['upid'])
+      # Extract some fields into their own columns for convenience.
+      df.queries = px.pluck(df.req_body, 'queries')
+      df.answers = px.pluck(df.resp_body, 'answers')
+      df.rcode = px.pluck_int64(df.resp_header, 'rcode')
+      df.resolved = px.contains(df.answers, 'name')
+      df.query = px.replace('.*"name":"(.*?)".*', df.queries, '\\1')
+      df.query_type = px.replace('.*"type":"(.*?)".*', df.queries, '\\1')
+      # Convert DNS IP to string service name
+      df.dns_server = px.service_id_to_service_name(px.ip_to_service_id(df.remote_addr))
+      # If the dns service is missing then try by pod
+      df.dns_server = px.select(
+          df.dns_server != '',
+          df.dns_server,
+          px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr)),
+      )
+
+      # If the dns service is missing then try the nslookup
+      df.dns_server = px.select(
+          df.dns_server != '',
+          df.dns_server,
+          px.nslookup(df.remote_addr),
+      )
+      # If the dns service is still missing then set the remote_addr
+      df.dns_server = px.select(
+          df.dns_server != '',
+          df.dns_server,
+          df.remote_addr,
+      )
+      df.namespace = px.pod_name_to_namespace(df.pod)
+      def remove_ns_prefix(column):
+          return px.replace('[a-z0-9\-]*/', column, '')
+      df.pod = remove_ns_prefix(df.pod)
+      df.service = remove_ns_prefix(df.service)
+      # Before aggregating, output individual requests to drawer.
+      # Convert latency from ns units to ms units.
+      df.latency = df.latency / (1000 * 1000)
+      # Aggregate by each pod making a query to a particular DNS.
+      df = df.groupby(['container', 'pod', 'service', 'dns_server', 'query', 'namespace', 'node', 'rcode', 'resolved', 'query_type']).agg(
+          time_=('time_', px.max),
+          latency_max=('latency', px.max),
+          latency_min=('latency', px.min),
+          latency_count=('latency', px.count),
+          latency_sum=('latency', px.sum),
+      )
+      df.pixie = 'pixie'
+      df.cluster_id = px.vizier_id()
+      df.cluster_name = px.vizier_name()
+      df.dns_server_name = remove_ns_prefix(df.dns_server)
+      df.dns_server_namespace = px.pod_name_to_namespace(df.dns_server)
+      # Choose the current namespace if the server name is localhost
+      df.dns_server_namespace = px.select(df.dns_server == 'localhost', df.namespace, df.dns_server_namespace)
+      df.dns_cluster_id = px.select(df.dns_server_namespace == '', '', px.vizier_id())
+      px.export(df, px.otel.Data(
+        resource={
+          'service.name': df.service,
+          'service.instance.id': df.pod,
+          'k8s.pod.name': df.pod,
+          'k8s.namespace.name': df.namespace,
+          'k8s.container.name': df.container,
+          'k8s.cluster.name': df.cluster_name,
+          'px.cluster.id': df.cluster_id,
+          'instrumentation.provider': df.pixie,
+          'dns.server.name': df.dns_server_name,
+          'dns.server.namespace': df.dns_server_namespace,
+          'dns.server.cluster_id': df.dns_cluster_id,
+          'dns.query': df.query,
+          'dns.rcode': df.rcode,
+          'dns.resolved': df.resolved,
+          'dns.query_type': df.query_type,
+        },
+        data=[
+          px.otel.metric.Summary(
+              name='dns.latency',
+              count=df.latency_count,
+              sum=df.latency_sum,
+              unit='ms',
+              quantile_values={
+                  0.0: df.latency_min,
+                  1.0: df.latency_max,
+              },
+          ),
+        ]
+      ))
+  - name: "DNS Spans"
+    description: "Exports a sample of DNS Spans from Pixie data"
+    defaultDisabled: true
+    defaultFrequencyS: 10
+    script: |
+      #px:set max_output_rows_per_table=500
+      import px
+
+      df = px.DataFrame('dns_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
+      df = df[df.trace_role == 1]
+      df = df.drop(['trace_role'])
+
+      # Add context.
+      df.pod = df.ctx['pod']
+      df.service = df.ctx['service']
+      df.namespace = df.ctx['namespace']
+      df.node = df.ctx['node']
+      df.container = df.ctx['container']
+      df = df.drop(['upid'])
+
+
+      # Extract some fields into their own columns for convenience.
+      df.queries = px.pluck(df.req_body, 'queries')
+      df.answers = px.pluck(df.resp_body, 'answers')
+      df.rcode = px.pluck_int64(df.resp_header, 'rcode')
+      df.resolved = px.contains(df.answers, 'name')
+
+      df.query = px.replace('.*"name":"(.*?)".*', df.queries, '\\1')
+      df.query_type = px.replace('.*"type":"(.*?)".*', df.queries, '\\1')
+
+      # Convert DNS IP to string service name
+      df.dns_server = px.service_id_to_service_name(px.ip_to_service_id(df.remote_addr))
+      # If the dns service is missing then try by pod
+      df.dns_server = px.select(
+          df.dns_server != '',
+          df.dns_server,
+          px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr)),
+      )
+      # If the dns service is missing then try the nslookup
+      df.dns_server = px.select(
+          df.dns_server != '',
+          df.dns_server,
+          px.nslookup(df.remote_addr),
+      )
+      # If the dns service is still missing then set the remote_addr
+      df.dns_server = px.select(
+          df.dns_server != '',
+          df.dns_server,
+          df.remote_addr,
+      )
+      df.namespace = px.pod_name_to_namespace(df.pod)
+
+      def remove_ns_prefix(column):
+          return px.replace('[a-z0-9\-]*/', column, '')
+
+      df.pod = remove_ns_prefix(df.pod)
+      df.service = remove_ns_prefix(df.service)
+
+      df.start_time = df.time_ - df.latency
+      # Before aggregating, output individual requests to drawer.
+      # Convert latency from ns units to ms units.
+      df.latency = df.latency / (1000 * 1000)
+
+      df.pixie = 'pixie'
+      df.cluster_id = px.vizier_id()
+      df.cluster_name = px.vizier_name()
+      df.dns_server_name = remove_ns_prefix(df.dns_server)
+      df.dns_server_namespace = px.pod_name_to_namespace(df.dns_server)
+      # Choose the current namespace if the server name is localhost
+      df.dns_server_namespace = px.select(df.dns_server == 'localhost', df.namespace, df.dns_server_namespace)
+      df.dns_cluster_id = px.select(df.dns_server_namespace == '', '', px.vizier_id())
+
+      px.export(df, px.otel.Data(
+        resource={
+          'service.name': df.service,
+          'service.instance.id': df.pod,
+          'k8s.pod.name': df.pod,
+          'k8s.namespace.name': df.namespace,
+          'k8s.container.name': df.container,
+          'k8s.cluster.name': df.cluster_name,
+          'px.cluster.id': df.cluster_id,
+          'instrumentation.provider': df.pixie,
+        },
+        data=[
+          px.otel.trace.Span(
+            name='dns',
+            start_time=df.start_time,
+            end_time=df.time_,
+            kind=px.otel.trace.SPAN_KIND_CLIENT,
+            attributes={
+                'dns.latency': df.latency,
+                'dns.req_body': df.req_body,
+                'dns.resp_body': df.resp_body,
+                'dns.server.name': df.dns_server_name,
+                'dns.server.namespace': df.dns_server_namespace,
+                'dns.server.cluster_id': df.dns_cluster_id,
+                'dns.query': df.query,
+                'dns.rcode': df.rcode,
+                'dns.resolved': df.resolved,
+                'dns.query_type': df.query_type,
+            },
+          )
+        ]
+      ))
