@@ -471,25 +471,81 @@ presetScripts:
 
       import px
 
-      df = px.DataFrame('mysql_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
+      def remove_duplicate_traces(df):
+          ''' Removes duplicate traces.
 
-      ns_prefix = df.ctx['namespace'] + '/'
-      df.container = df.ctx['container_name']
-      df.pod = px.strip_prefix(ns_prefix, df.ctx['pod'])
-      df.service = px.strip_prefix(ns_prefix, df.ctx['service'])
-      df.namespace = df.ctx['namespace']
+              For historical reasons, Pixie traces MySQL requests on both the client AND server side:
+              https://github.com/pixie-io/pixie/blob/5e5598ac46f39219148a36468b5318b1466a92d4/src/stirling/source_connectors/socket_tracer/conn_tracker.cc#L639
+          '''
+
+          # Keep client-side traces if server is outside the cluster (can't be resolved to pod or svc)
+          df.remote_pod_id = px.ip_to_pod_id(df.remote_addr)
+          df.remote_service_id = px.ip_to_service_id(df.remote_addr)
+          df.remote_outside_cluster = df.remote_pod_id == '' and df.remote_service_id == ''
+          df_client_traces = df[df.trace_role == 1 and df.remote_outside_cluster]
+
+          df_server_traces = df[df.trace_role == 2]
+          df_server_traces.append(df_client_traces)
+          return df_server_traces
+
+      def remove_ns_prefix(column):
+          return px.replace('[a-z0-9\-]*/', column, '')
+
+      def add_source_dest_columns(df):
+          df.pod = df.ctx['pod']
+          df.namespace = df.ctx['namespace']
+
+          # If remote_addr is a pod, get its name. If not, use IP address.
+          df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
+          df.is_ra_pod = df.ra_pod != ''
+          df.ra_name = px.select(df.is_ra_pod, df.ra_pod, df.remote_addr)
+
+          df.is_server_tracing = df.trace_role == 2
+          df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
+          df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
+
+          # Set client and server based on trace_role.
+          df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
+          df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
+
+          df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
+          df.source_service = px.pod_name_to_service_name(df.source_pod)
+          df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
+          df.source_namespace = px.pod_name_to_namespace(df.source_pod)
+
+          df.source_service = remove_ns_prefix(df.source_service)
+          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_pod = remove_ns_prefix(df.source_pod)
+          df.destination_pod = remove_ns_prefix(df.destination_pod)
+
+          # If the destination service is missing then try the nslookup
+          df.destination_service = px.select(
+              df.destination_service != '',
+              df.destination_service,
+              px.nslookup(df.remote_addr),
+          )
+          # If the destination service is still missing then set the remote_addr
+          df.destination_service = px.select(
+              df.destination_service != '',
+              df.destination_service,
+              df.remote_addr,
+          )
+          return df
+
+      df = px.DataFrame('mysql_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
+      df = remove_duplicate_traces(df)
+      df = add_source_dest_columns(df)
 
       df.normed_query_struct = px.normalize_mysql(df.req_body, df.req_cmd)
       df.query = px.pluck(df.normed_query_struct, 'query')
-
       df = df[df.query != ""]
-      df = df[df.trace_role == 1]
 
-      df.start_time = df.time_
-      df.end_time = df.time_ + df.latency
-
-      df = df[['start_time', 'end_time', 'container', 'service', 'pod', 'namespace', 'query', 'latency']]
-
+      df.start_time = df.time_ - df.latency
+      df.latency = df.latency / (1000 * 1000)
+      df.req_bytes = px.length(df.req_body)
+      df.resp_bytes = px.length(df.resp_body)
+      df.req_cmd = px.mysql_command_name(df.req_cmd)
       df.cluster_name = px.vizier_name()
       df.cluster_id = px.vizier_id()
       df.pixie = 'pixie'
@@ -498,22 +554,30 @@ presetScripts:
       px.export(
         df, px.otel.Data(
           resource={
-            'service.name': df.service,
-            'k8s.container.name': df.container,
-            'service.instance.id': df.pod,
-            'k8s.pod.name': df.pod,
-            'k8s.namespace.name': df.namespace,
-            'px.cluster.id': df.cluster_id,
+            'service.name': df.source_service,
+            'service.instance.id': df.source_pod,
+            'k8s.namespace.name': df.source_namespace,
+            'mysql.service.name': df.destination_service,
+            'mysql.pod.name': df.destination_pod,
+            'mysql.namespace.name': df.destination_namespace,
             'k8s.cluster.name': df.cluster_name,
+            'px.cluster.id': df.cluster_id,
             'instrumentation.provider': df.pixie,
           },
           data=[
             px.otel.trace.Span(
               name=df.query,
               start_time=df.start_time,
-              end_time=df.end_time,
+              end_time=df.time_,
               kind=px.otel.trace.SPAN_KIND_CLIENT,
               attributes={
+                'mysql.req_cmd': df.req_cmd,
+                'mysql.req_body': df.req_body,
+                'mysql.req_bytes': df.req_bytes,
+                'mysql.resp_bytes': df.resp_bytes,
+                'mysql.resp_latency': df.latency,
+                'mysql.resp_status': df.resp_status,
+                'mysql.resp_body': df.resp_body,
                 'db.system': df.db_system,
               },
             ),
