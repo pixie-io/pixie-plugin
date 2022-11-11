@@ -721,7 +721,7 @@ presetScripts:
     defaultFrequencyS: 10
   - name: "Kafka Metrics"
     description: "This script generates metrics from Kafka and sends them to New Relic's OTel endpoint."
-    defaultDisabled: true
+    defaultDisabled: false
     defaultFrequencyS: 10
     script: |
       import px
@@ -950,7 +950,7 @@ presetScripts:
       )
   - name: "Kafka Spans"
     description: "This script samples Kafka Spans and sends them to New Relic's OTel endpoint."
-    defaultDisabled: true
+    defaultDisabled: false
     defaultFrequencyS: 10
     script: |
       import px
@@ -1159,7 +1159,7 @@ presetScripts:
       )
   - name: Redis Spans
     description: This script generates OpenTelemetry spans for Redis commands.
-    defaultDisabled: true
+    defaultDisabled: false
     defaultFrequencyS: 10
     script: |
       #px:set max_output_rows_per_table=500
@@ -1253,7 +1253,7 @@ presetScripts:
       ))
   - name: Redis Metrics
     description: This script exports Redis metrics to New Relic.
-    defaultDisabled: true
+    defaultDisabled: false
     defaultFrequencyS: 10
     script: |
       #px:set max_output_rows_per_table=10000
@@ -1362,7 +1362,7 @@ presetScripts:
       ))
   - name: "DNS Metrics"
     description: "This script calculates DNS request metrics"
-    defaultDisabled: true
+    defaultDisabled: false
     defaultFrequencyS: 10
     script: |
       #px:set max_output_rows_per_table=10000
@@ -1464,7 +1464,7 @@ presetScripts:
       ))
   - name: "DNS Spans"
     description: "Exports a sample of DNS Spans from Pixie data"
-    defaultDisabled: true
+    defaultDisabled: false
     defaultFrequencyS: 10
     script: |
       #px:set max_output_rows_per_table=500
@@ -1568,7 +1568,7 @@ presetScripts:
       ))
   - name: Cassandra Spans
     description: This script generates OpenTelemetry spans for Cassandra span events.
-    defaultDisabled: true
+    defaultDisabled: false
     defaultFrequencyS: 10
     script: |
       #px:set max_output_rows_per_table=500
@@ -1678,7 +1678,7 @@ presetScripts:
       )
   - name: Cassandra Metrics
     description: This script exports Cassandra metrics to New Relic.
-    defaultDisabled: true
+    defaultDisabled: false
     defaultFrequencyS: 10
     script: |
       #px:set max_output_rows_per_table=10000
