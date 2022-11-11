@@ -1870,6 +1870,7 @@ presetScripts:
       df.resp_bytes = px.pluck_int64(df.resp_msg, 'body_size')
       df.req_routing_key = px.pluck(df.req_msg, 'routing_key')
       df.resp_routing_key = px.pluck(df.resp_msg, 'routing_key')
+      df.routing_key = px.select(df.req_routing_key != '', df.req_routing_key, df.resp_routing_key)
 
       # We filter out the Content Body and Heartbeat frames from spans because they don't contain any useful information.
       df = df[df.frame_name != "Content Body" and df.frame_name != "Heartbeat"]
@@ -1892,8 +1893,9 @@ presetScripts:
             'amqp.frame_name': df.frame_name,
             'amqp.req_name': df.req_name,
             'amqp.resp_name': df.resp_name,
-            'amqp.req_routing_key': df.req_routing_key,
-            'amqp.resp_routing_key': df.resp_routing_key,
+            'amqp.req_body': df.req_msg,
+            'amqp.resp_body': df.resp_msg,
+            'amqp.routing_key': df.routing_key,
             'k8s.cluster.name': df.cluster_name,
             'px.cluster.id': df.cluster_id,
             'instrumentation.provider': df.pixie,
@@ -1976,9 +1978,10 @@ presetScripts:
       df.resp_bytes = px.pluck_int64(df.resp_msg, 'body_size')
       df.req_routing_key = px.pluck(df.req_msg, 'routing_key')
       df.resp_routing_key = px.pluck(df.resp_msg, 'routing_key')
+      df.routing_key = px.select(df.req_routing_key != '', df.req_routing_key, df.resp_routing_key)
 
       df = df.groupby(['source_pod', 'source_service', 'source_namespace', 'destination_pod', 'destination_service',
-                       'destination_namespace',  'frame_name', 'req_name', 'resp_name', 'req_routing_key', 'resp_routing_key']).agg(
+                       'destination_namespace',  'frame_name', 'req_name', 'resp_name', 'routing_key']).agg(
           req_bytes=('req_bytes', px.sum),
           resp_bytes=('resp_bytes', px.sum),
           count=('upid', px.count),
@@ -2001,8 +2004,7 @@ presetScripts:
             'amqp.frame_name': df.frame_name,
             'amqp.req_name': df.req_name,
             'amqp.resp_name': df.resp_name,
-            'amqp.req_routing_key': df.req_routing_key,
-            'amqp.resp_routing_key': df.resp_routing_key,
+            'amqp.routing_key': df.routing_key,
             'k8s.cluster.name': df.cluster_name,
             'px.cluster.id': df.cluster_id,
             'instrumentation.provider': df.pixie,
