@@ -253,6 +253,7 @@ presetScripts:
       )
     defaultFrequencyS: 10
   - name: "PostgreSQL Spans (Service Entity View)"
+    defaultDisabled: false
     description: "This script generates span events from queries to PostgreSQL databases and sends them to New Relic's OTel endpoint."
     script: |
       #px:set max_output_rows_per_table=500
@@ -310,6 +311,7 @@ presetScripts:
       )
     defaultFrequencyS: 10
   - name: "PostgreSQL Spans (Postgres Entity View)"
+    defaultDisabled: true
     description: "This script generates span events from queries to PostgreSQL databases and sends them to New Relic's OTel endpoint."
     script: |
       #px:set max_output_rows_per_table=500
@@ -522,6 +524,7 @@ presetScripts:
       )
     defaultFrequencyS: 10
   - name: "MySQL Spans (Service Entity View)"
+    defaultDisabled: false
     description: "This script generates span events from queries to PostgreSQL databases and sends them to New Relic's OTel endpoint."
     script: |
       #px:set max_output_rows_per_table=500
@@ -579,6 +582,7 @@ presetScripts:
       )
     defaultFrequencyS: 10
   - name: "MySQL Spans (MySQL Entity View)"
+    defaultDisabled: true
     description: "This script generates span events from queries to MySQL databases and sends them to New Relic's OTel endpoint."
     script: |
       #px:set max_output_rows_per_table=500
