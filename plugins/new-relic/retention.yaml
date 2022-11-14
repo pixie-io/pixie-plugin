@@ -1179,7 +1179,7 @@ presetScripts:
                       name=df.span_name,
                       start_time=df.start_time,
                       end_time=df.time_,
-                      kind=px.otel.trace.SPAN_KIND_CLIENT,
+                      kind=px.otel.trace.SPAN_KIND_SERVER,
                       attributes={
                           "kafka.client_id": df.client_id,
                           "kafka.has_error": df.has_error,
@@ -1278,7 +1278,7 @@ presetScripts:
             name=df.req_cmd,
             start_time=df.start_time,
             end_time=df.time_,
-            kind=px.otel.trace.SPAN_KIND_CLIENT,
+            kind=px.otel.trace.SPAN_KIND_SERVER,
             attributes={
               'redis.req_bytes': df.req_bytes,
               'redis.resp_bytes': df.resp_bytes,
@@ -1639,7 +1639,7 @@ presetScripts:
             name='dns',
             start_time=df.start_time,
             end_time=df.time_,
-            kind=px.otel.trace.SPAN_KIND_CLIENT,
+            kind=px.otel.trace.SPAN_KIND_SERVER,
             attributes={
                 'dns.latency': df.latency,
                 'dns.req_body': df.req_body,
@@ -1761,7 +1761,7 @@ presetScripts:
               name=df.req_cmd,
               start_time=df.start_time,
               end_time=df.time_,
-              kind=px.otel.trace.SPAN_KIND_CLIENT,
+              kind=px.otel.trace.SPAN_KIND_SERVER,
             ),
           ],
         ),
