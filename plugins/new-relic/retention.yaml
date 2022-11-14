@@ -252,7 +252,64 @@ presetScripts:
         ),
       )
     defaultFrequencyS: 10
-  - name: "PostgreSQL Spans"
+  - name: "PostgreSQL Spans (Service Entity View)"
+    description: "This script generates span events from queries to PostgreSQL databases and sends them to New Relic's OTel endpoint."
+    script: |
+      #px:set max_output_rows_per_table=500
+
+      import px
+
+      df = px.DataFrame('pgsql_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
+
+      ns_prefix = df.ctx['namespace'] + '/'
+      df.container = df.ctx['container_name']
+      df.pod = px.strip_prefix(ns_prefix, df.ctx['pod'])
+      df.service = px.strip_prefix(ns_prefix, df.ctx['service'])
+      df.namespace = df.ctx['namespace']
+
+      df.normed_query_struct = px.normalize_pgsql(df.req, df.req_cmd)
+      df.query = px.pluck(df.normed_query_struct, 'query')
+
+      df = df[df.query != ""]
+      df = df[df.trace_role == 1]
+
+      df.start_time = df.time_
+      df.end_time = df.time_ + df.latency
+
+      df = df[['start_time', 'end_time', 'container', 'service', 'pod', 'namespace', 'query', 'latency']]
+
+      df.cluster_name = px.vizier_name()
+      df.cluster_id = px.vizier_id()
+      df.pixie = 'pixie'
+      df.db_system = 'postgres'
+
+      px.export(
+        df, px.otel.Data(
+          resource={
+            'service.name': df.service,
+            'k8s.container.name': df.container,
+            'service.instance.id': df.pod,
+            'k8s.pod.name': df.pod,
+            'k8s.namespace.name': df.namespace,
+            'pixie.cluster.id': df.cluster_id,
+            'k8s.cluster.name': df.cluster_name,
+            'instrumentation.provider': df.pixie,
+          },
+          data=[
+            px.otel.trace.Span(
+              name=df.query,
+              start_time=df.start_time,
+              end_time=df.end_time,
+              kind=px.otel.trace.SPAN_KIND_CLIENT,
+              attributes={
+                'db.system': df.db_system,
+              },
+            ),
+          ],
+        ),
+      )
+    defaultFrequencyS: 10
+  - name: "PostgreSQL Spans (Postgres Entity View)"
     description: "This script generates span events from queries to PostgreSQL databases and sends them to New Relic's OTel endpoint."
     script: |
       #px:set max_output_rows_per_table=500
@@ -464,7 +521,64 @@ presetScripts:
         ),
       )
     defaultFrequencyS: 10
-  - name: "MySQL Spans"
+  - name: "MySQL Spans (Service Entity View)"
+    description: "This script generates span events from queries to PostgreSQL databases and sends them to New Relic's OTel endpoint."
+    script: |
+      #px:set max_output_rows_per_table=500
+
+      import px
+
+      df = px.DataFrame('mysql_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
+
+      ns_prefix = df.ctx['namespace'] + '/'
+      df.container = df.ctx['container_name']
+      df.pod = px.strip_prefix(ns_prefix, df.ctx['pod'])
+      df.service = px.strip_prefix(ns_prefix, df.ctx['service'])
+      df.namespace = df.ctx['namespace']
+
+      df.normed_query_struct = px.normalize_mysql(df.req_body, df.req_cmd)
+      df.query = px.pluck(df.normed_query_struct, 'query')
+
+      df = df[df.query != ""]
+      df = df[df.trace_role == 1]
+
+      df.start_time = df.time_
+      df.end_time = df.time_ + df.latency
+
+      df = df[['start_time', 'end_time', 'container', 'service', 'pod', 'namespace', 'query', 'latency']]
+
+      df.cluster_name = px.vizier_name()
+      df.cluster_id = px.vizier_id()
+      df.pixie = 'pixie'
+      df.db_system = 'mysql'
+
+      px.export(
+        df, px.otel.Data(
+          resource={
+            'service.name': df.service,
+            'k8s.container.name': df.container,
+            'service.instance.id': df.pod,
+            'k8s.pod.name': df.pod,
+            'k8s.namespace.name': df.namespace,
+            'pixie.cluster.id': df.cluster_id,
+            'k8s.cluster.name': df.cluster_name,
+            'instrumentation.provider': df.pixie,
+          },
+          data=[
+            px.otel.trace.Span(
+              name=df.query,
+              start_time=df.start_time,
+              end_time=df.end_time,
+              kind=px.otel.trace.SPAN_KIND_CLIENT,
+              attributes={
+                'db.system': df.db_system,
+              },
+            ),
+          ],
+        ),
+      )
+    defaultFrequencyS: 10
+  - name: "MySQL Spans (MySQL Entity View)"
     description: "This script generates span events from queries to MySQL databases and sends them to New Relic's OTel endpoint."
     script: |
       #px:set max_output_rows_per_table=500
