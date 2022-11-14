@@ -252,7 +252,7 @@ presetScripts:
         ),
       )
     defaultFrequencyS: 10
-  - name: "PostgreSQL Spans (Service Entity View)"
+  - name: "PostgreSQL Spans (V1)"
     defaultDisabled: false
     description: "This script generates span events from queries to PostgreSQL databases and sends them to New Relic's OTel endpoint."
     script: |
@@ -310,7 +310,7 @@ presetScripts:
         ),
       )
     defaultFrequencyS: 10
-  - name: "PostgreSQL Spans (Postgres Entity View)"
+  - name: "PostgreSQL Spans (V2)"
     defaultDisabled: true
     description: "This script generates span events from queries to PostgreSQL databases and sends them to New Relic's OTel endpoint."
     script: |
@@ -523,7 +523,7 @@ presetScripts:
         ),
       )
     defaultFrequencyS: 10
-  - name: "MySQL Spans (Service Entity View)"
+  - name: "MySQL Spans (V1)"
     defaultDisabled: false
     description: "This script generates span events from queries to PostgreSQL databases and sends them to New Relic's OTel endpoint."
     script: |
@@ -581,7 +581,7 @@ presetScripts:
         ),
       )
     defaultFrequencyS: 10
-  - name: "MySQL Spans (MySQL Entity View)"
+  - name: "MySQL Spans (V2)"
     defaultDisabled: true
     description: "This script generates span events from queries to MySQL databases and sends them to New Relic's OTel endpoint."
     script: |
