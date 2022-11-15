@@ -1145,7 +1145,9 @@ presetScripts:
       df = producer_df.append([consumer_df, remaining_df])
 
       # Convert latency from ns units to ms units.
-      df.start_time = df.time_ - df.latency
+      # Kafka/NATS/AMQP measure latency differently than the rest of the Pixie protocols.
+      df.start_time = time_
+      df.end_time = time_ + latency
       df.latency = df.latency / (1000.0 * 1000.0)
 
       # Get throughput by adding size of message_sets. Note that this is the total size of the
@@ -1178,7 +1180,7 @@ presetScripts:
                   px.otel.trace.Span(
                       name=df.span_name,
                       start_time=df.start_time,
-                      end_time=df.time_,
+                      end_time=df.end_time,
                       kind=px.otel.trace.SPAN_KIND_SERVER,
                       attributes={
                           "kafka.client_id": df.client_id,
