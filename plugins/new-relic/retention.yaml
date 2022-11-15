@@ -382,7 +382,6 @@ presetScripts:
         df.source_namespace = px.pod_name_to_namespace(df.source_pod)
         df.source_service = remove_ns_prefix(df.source_service)
         df.destination_service = remove_ns_prefix(df.destination_service)
-        df.source_container = px.select(df.is_server_tracing, '', df.container)
         df.source_pod = remove_ns_prefix(df.source_pod)
         df.destination_pod = remove_ns_prefix(df.destination_pod)
         return df
@@ -476,6 +475,7 @@ presetScripts:
       def add_source_dest_columns(df):
           df.pod = df.ctx['pod']
           df.namespace = df.ctx['namespace']
+          df.container = df.ctx['container'] 
 
           # If remote_addr is a pod, get its name. If not, use IP address.
           df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
@@ -617,7 +617,6 @@ presetScripts:
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
-          df.source_container = px.select(df.is_server_tracing, '', df.container)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           return df
@@ -814,7 +813,6 @@ presetScripts:
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
-          df.source_container = px.select(df.is_server_tracing, '', df.container)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           return df
@@ -1030,7 +1028,6 @@ presetScripts:
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
-          df.source_container = px.select(df.is_server_tracing, '', df.container)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           return df
@@ -1130,7 +1127,6 @@ presetScripts:
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
-          df.source_container = px.select(df.is_server_tracing, '', df.container)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           return df
@@ -1209,7 +1205,6 @@ presetScripts:
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
-          df.source_container = px.select(df.is_server_tracing, '', df.container)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           return df
@@ -1573,7 +1568,6 @@ presetScripts:
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
-          df.source_container = px.select(df.is_server_tracing, '', df.container)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           return df
@@ -1668,7 +1662,6 @@ presetScripts:
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
-          df.source_container = px.select(df.is_server_tracing, '', df.container)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           return df
