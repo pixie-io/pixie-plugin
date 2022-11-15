@@ -310,58 +310,48 @@ presetScripts:
       df.pixie = 'pixie'
       df.db_system = 'postgres'
 
-      # Export client span format for the client side of the request
       px.export(
         df, px.otel.Data(
           resource={
             'service.name': df.source_service,
-            'k8s.container.name': df.source_container,
-            'service.instance.id': df.source_pod,
-            'k8s.pod.name': df.source_pod,
-            'k8s.namespace.name': df.source_namespace,
-            'px.cluster.id': df.cluster_id,
-            'k8s.cluster.name': df.cluster_name,
-            'instrumentation.provider': df.pixie,
           },
           data=[
+            # Export client span format for the client side of the request
             px.otel.trace.Span(
               name=df.query,
               start_time=df.start_time,
               end_time=df.time_,
               kind=px.otel.trace.SPAN_KIND_CLIENT,
               attributes={
+                'k8s.container.name': df.source_container,
+                'service.instance.id': df.source_pod,
+                'k8s.pod.name': df.source_pod,
+                'k8s.namespace.name': df.source_namespace,
+                'px.cluster.id': df.cluster_id,
+                'k8s.cluster.name': df.cluster_name,
+                'instrumentation.provider': df.pixie,
                 'db.system': df.db_system,
               },
             ),
-          ],
-        ),
-      )
-
-      # Export server span format for the server (Postgres) side of the request
-      px.export(
-        df, px.otel.Data(
-          resource={
-            'service.name': df.source_service,
-            'service.instance.id': df.source_pod,
-            'k8s.namespace.name': df.source_namespace,
-            'postgres.service.name': df.destination_service,
-            'postgres.pod.name': df.destination_pod,
-            'postgres.namespace.name': df.destination_namespace,
-            'k8s.cluster.name': df.cluster_name,
-            'px.cluster.id': df.cluster_id,
-            'instrumentation.provider': df.pixie,
-          },
-          data=[
+            # Export server span format for the server (Postgres) side of the request
             px.otel.trace.Span(
               name=df.query,
               start_time=df.start_time,
               end_time=df.time_,
               kind=px.otel.trace.SPAN_KIND_SERVER,
               attributes={
+                'service.instance.id': df.source_pod,
+                'k8s.namespace.name': df.source_namespace,
+                'postgres.service.name': df.destination_service,
+                'postgres.pod.name': df.destination_pod,
+                'postgres.namespace.name': df.destination_namespace,
+                'k8s.cluster.name': df.cluster_name,
+                'px.cluster.id': df.cluster_id,
+                'instrumentation.provider': df.pixie,
                 'db.system': df.db_system,
                 'postgres.req_cmd': df.req_cmd,
-                'postgres.req': df.req,
-                # Disabling sending df.resp for now until illegal characters are handled.
+                # Disabling sending df.req and df.resp for now until illegal characters are handled.
+                # 'postgres.req': df.req,
                 # 'postgres.resp': df.resp,
                 'postgres.resp_latency': df.latency,
               },
