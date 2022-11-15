@@ -310,58 +310,48 @@ presetScripts:
       df.pixie = 'pixie'
       df.db_system = 'postgres'
 
-      # Export client span format for the client side of the request
       px.export(
         df, px.otel.Data(
           resource={
             'service.name': df.source_service,
-            'k8s.container.name': df.source_container,
-            'service.instance.id': df.source_pod,
-            'k8s.pod.name': df.source_pod,
-            'k8s.namespace.name': df.source_namespace,
-            'px.cluster.id': df.cluster_id,
-            'k8s.cluster.name': df.cluster_name,
-            'instrumentation.provider': df.pixie,
           },
           data=[
+            # Export client span format for the client side of the request
             px.otel.trace.Span(
               name=df.query,
               start_time=df.start_time,
               end_time=df.time_,
               kind=px.otel.trace.SPAN_KIND_CLIENT,
               attributes={
+                'k8s.container.name': df.source_container,
+                'service.instance.id': df.source_pod,
+                'k8s.pod.name': df.source_pod,
+                'k8s.namespace.name': df.source_namespace,
+                'px.cluster.id': df.cluster_id,
+                'k8s.cluster.name': df.cluster_name,
+                'instrumentation.provider': df.pixie,
                 'db.system': df.db_system,
               },
             ),
-          ],
-        ),
-      )
-
-      # Export server span format for the server (Postgres) side of the request
-      px.export(
-        df, px.otel.Data(
-          resource={
-            'service.name': df.source_service,
-            'service.instance.id': df.source_pod,
-            'k8s.namespace.name': df.source_namespace,
-            'postgres.service.name': df.destination_service,
-            'postgres.pod.name': df.destination_pod,
-            'postgres.namespace.name': df.destination_namespace,
-            'k8s.cluster.name': df.cluster_name,
-            'px.cluster.id': df.cluster_id,
-            'instrumentation.provider': df.pixie,
-          },
-          data=[
+            # Export server span format for the server (Postgres) side of the request
             px.otel.trace.Span(
               name=df.query,
               start_time=df.start_time,
               end_time=df.time_,
               kind=px.otel.trace.SPAN_KIND_SERVER,
               attributes={
+                'service.instance.id': df.source_pod,
+                'k8s.namespace.name': df.source_namespace,
+                'postgres.service.name': df.destination_service,
+                'postgres.pod.name': df.destination_pod,
+                'postgres.namespace.name': df.destination_namespace,
+                'k8s.cluster.name': df.cluster_name,
+                'px.cluster.id': df.cluster_id,
+                'instrumentation.provider': df.pixie,
                 'db.system': df.db_system,
                 'postgres.req_cmd': df.req_cmd,
-                'postgres.req': df.req,
-                # Disabling sending df.resp for now until illegal characters are handled.
+                # Disabling sending df.req and df.resp for now until illegal characters are handled.
+                # 'postgres.req': df.req,
                 # 'postgres.resp': df.resp,
                 'postgres.resp_latency': df.latency,
               },
@@ -561,54 +551,27 @@ presetScripts:
       df.pixie = 'pixie'
       df.db_system = 'mysql'
 
-      # Export client span format for the client side of the request
       px.export(
         df, px.otel.Data(
           resource={
             'service.name': df.source_service,
-            'k8s.container.name': df.source_container,
-            'service.instance.id': df.source_pod,
-            'k8s.pod.name': df.source_pod,
-            'k8s.namespace.name': df.source_namespace,
-            'px.cluster.id': df.cluster_id,
-            'k8s.cluster.name': df.cluster_name,
-            'instrumentation.provider': df.pixie,
           },
           data=[
-            px.otel.trace.Span(
-              name=df.query,
-              start_time=df.start_time,
-              end_time=df.time_,
-              kind=px.otel.trace.SPAN_KIND_CLIENT,
-              attributes={
-                'db.system': df.db_system,
-              },
-            ),
-          ],
-        ),
-      )
-
-      # Export server span format for the server (MySQL) side of the reques
-      px.export(
-        df, px.otel.Data(
-          resource={
-            'service.name': df.source_service,
-            'service.instance.id': df.source_pod,
-            'k8s.namespace.name': df.source_namespace,
-            'mysql.service.name': df.destination_service,
-            'mysql.pod.name': df.destination_pod,
-            'mysql.namespace.name': df.destination_namespace,
-            'k8s.cluster.name': df.cluster_name,
-            'px.cluster.id': df.cluster_id,
-            'instrumentation.provider': df.pixie,
-          },
-          data=[
+            # Export client span format for the client side of the request
             px.otel.trace.Span(
               name=df.query,
               start_time=df.start_time,
               end_time=df.time_,
               kind=px.otel.trace.SPAN_KIND_SERVER,
               attributes={
+                'service.instance.id': df.source_pod,
+                'k8s.namespace.name': df.source_namespace,
+                'mysql.service.name': df.destination_service,
+                'mysql.pod.name': df.destination_pod,
+                'mysql.namespace.name': df.destination_namespace,
+                'k8s.cluster.name': df.cluster_name,
+                'px.cluster.id': df.cluster_id,
+                'instrumentation.provider': df.pixie,
                 'mysql.req_cmd': df.req_cmd,
                 'mysql.req_body': df.req_body,
                 'mysql.req_bytes': df.req_bytes,
@@ -616,6 +579,23 @@ presetScripts:
                 'mysql.resp_latency': df.latency,
                 'mysql.resp_status': df.resp_status,
                 'mysql.resp_body': df.resp_body,
+                'db.system': df.db_system,
+              },
+            ),
+            # Export server span format for the server (MySQL) side of the request
+            px.otel.trace.Span(
+              name=df.query,
+              start_time=df.start_time,
+              end_time=df.time_,
+              kind=px.otel.trace.SPAN_KIND_CLIENT,
+              attributes={
+                'k8s.container.name': df.source_container,
+                'service.instance.id': df.source_pod,
+                'k8s.pod.name': df.source_pod,
+                'k8s.namespace.name': df.source_namespace,
+                'px.cluster.id': df.cluster_id,
+                'k8s.cluster.name': df.cluster_name,
+                'instrumentation.provider': df.pixie,
                 'db.system': df.db_system,
               },
             ),
@@ -1146,8 +1126,8 @@ presetScripts:
 
       # Convert latency from ns units to ms units.
       # Kafka/NATS/AMQP measure latency differently than the rest of the Pixie protocols.
-      df.start_time = time_
-      df.end_time = time_ + latency
+      df.start_time = df.time_
+      df.end_time = df.time_ + df.latency
       df.latency = df.latency / (1000.0 * 1000.0)
 
       # Get throughput by adding size of message_sets. Note that this is the total size of the
