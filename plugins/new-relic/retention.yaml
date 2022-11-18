@@ -256,7 +256,6 @@ presetScripts:
     description: "This script generates span events from queries to PostgreSQL databases and sends them to New Relic's OTel endpoint."
     script: |
       #px:set max_output_rows_per_table=500
-
       import px
 
       def remove_ns_prefix(column):
@@ -265,54 +264,37 @@ presetScripts:
       def add_source_dest_columns(df):
         df.pod = df.ctx['pod']
         df.namespace = df.ctx['namespace']
+        df.container = df.ctx['container']
 
         # If remote_addr is a pod, get its name. If not, use IP address.
         df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
-        df.is_ra_pod = df.ra_pod != ''
-        df.ra_name = px.select(df.is_ra_pod, df.ra_pod, df.remote_addr)
+        df.ra_name = px.select(df.ra_pod != '', df.ra_pod, px.nslookup(df.remote_addr))
 
         df.is_server_tracing = df.trace_role == 2
-        df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
-        df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
-
         # Set client and server based on trace_role.
         df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
         df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
 
-        df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
         df.source_service = px.pod_name_to_service_name(df.source_pod)
+        df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
         df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+        df.destination_service = px.select(df.destination_service != '', df.destination_service, df.destination_pod)
+
         df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
         df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-
         df.source_service = remove_ns_prefix(df.source_service)
         df.destination_service = remove_ns_prefix(df.destination_service)
+        df.source_container = px.select(df.is_server_tracing, '', df.container)
         df.source_pod = remove_ns_prefix(df.source_pod)
         df.destination_pod = remove_ns_prefix(df.destination_pod)
-
-        # If the destination service is missing then try the nslookup
-        df.destination_service = px.select(
-            df.destination_service != '',
-            df.destination_service,
-            px.nslookup(df.remote_addr),
-        )
-        # If the destination service is still missing then set the remote_addr
-        df.destination_service = px.select(
-            df.destination_service != '',
-            df.destination_service,
-            df.remote_addr,
-        )
         return df
 
       df = px.DataFrame('pgsql_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
       df = add_source_dest_columns(df)
-
       df.normed_query_struct = px.normalize_pgsql(df.req, df.req_cmd)
       df.query = px.pluck(df.normed_query_struct, 'query')
       df = df[df.query != ""]
-
       df.start_time = df.time_ - df.latency
-
       df.cluster_name = px.vizier_name()
       df.cluster_id = px.vizier_id()
       df.pixie = 'pixie'
@@ -322,26 +304,44 @@ presetScripts:
         df, px.otel.Data(
           resource={
             'service.name': df.source_service,
-            'service.instance.id': df.source_pod,
-            'k8s.namespace.name': df.source_namespace,
-            'postgres.service.name': df.destination_service,
-            'postgres.pod.name': df.destination_pod,
-            'postgres.namespace.name': df.destination_namespace,
-            'k8s.cluster.name': df.cluster_name,
-            'px.cluster.id': df.cluster_id,
-            'instrumentation.provider': df.pixie,
           },
           data=[
+            # Export client span format for the client side of the request
             px.otel.trace.Span(
               name=df.query,
               start_time=df.start_time,
               end_time=df.time_,
               kind=px.otel.trace.SPAN_KIND_CLIENT,
               attributes={
+                'k8s.container.name': df.source_container,
+                'service.instance.id': df.source_pod,
+                'k8s.pod.name': df.source_pod,
+                'k8s.namespace.name': df.source_namespace,
+                'px.cluster.id': df.cluster_id,
+                'k8s.cluster.name': df.cluster_name,
+                'instrumentation.provider': df.pixie,
+                'db.system': df.db_system,
+              },
+            ),
+            # Export server span format for the server (Postgres) side of the request
+            px.otel.trace.Span(
+              name=df.query,
+              start_time=df.start_time,
+              end_time=df.time_,
+              kind=px.otel.trace.SPAN_KIND_SERVER,
+              attributes={
+                'service.instance.id': df.source_pod,
+                'k8s.namespace.name': df.source_namespace,
+                'postgres.service.name': df.destination_service,
+                'postgres.pod.name': df.destination_pod,
+                'postgres.namespace.name': df.destination_namespace,
+                'k8s.cluster.name': df.cluster_name,
+                'px.cluster.id': df.cluster_id,
+                'instrumentation.provider': df.pixie,
                 'db.system': df.db_system,
                 'postgres.req_cmd': df.req_cmd,
-                'postgres.req': df.req,
-                # Disabling sending df.resp for now until illegal characters are handled.
+                # Disabling sending df.req and df.resp for now until illegal characters are handled.
+                # 'postgres.req': df.req,
                 # 'postgres.resp': df.resp,
                 'postgres.resp_latency': df.latency,
               },
@@ -366,40 +366,24 @@ presetScripts:
 
         # If remote_addr is a pod, get its name. If not, use IP address.
         df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
-        df.is_ra_pod = df.ra_pod != ''
-        df.ra_name = px.select(df.is_ra_pod, df.ra_pod, df.remote_addr)
+        df.ra_name = px.select(df.ra_pod != '', df.ra_pod, px.nslookup(df.remote_addr))
 
         df.is_server_tracing = df.trace_role == 2
-        df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
-        df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
-
         # Set client and server based on trace_role.
         df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
         df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
 
-        df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
         df.source_service = px.pod_name_to_service_name(df.source_pod)
+        df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
         df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+        df.destination_service = px.select(df.destination_service != '', df.destination_service, df.destination_pod)
+
         df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
         df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-
         df.source_service = remove_ns_prefix(df.source_service)
         df.destination_service = remove_ns_prefix(df.destination_service)
         df.source_pod = remove_ns_prefix(df.source_pod)
         df.destination_pod = remove_ns_prefix(df.destination_pod)
-
-        # If the destination service is missing then try the nslookup
-        df.destination_service = px.select(
-          df.destination_service != '',
-          df.destination_service,
-          px.nslookup(df.remote_addr),
-        )
-        # If the destination service is still missing then set the remote_addr
-        df.destination_service = px.select(
-          df.destination_service != '',
-          df.destination_service,
-          df.remote_addr,
-        )
         return df
 
       df = px.DataFrame('pgsql_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
@@ -473,17 +457,14 @@ presetScripts:
 
       def remove_duplicate_traces(df):
           ''' Removes duplicate traces.
-
               For historical reasons, Pixie traces MySQL requests on both the client AND server side:
               https://github.com/pixie-io/pixie/blob/5e5598ac46f39219148a36468b5318b1466a92d4/src/stirling/source_connectors/socket_tracer/conn_tracker.cc#L639
           '''
-
           # Keep client-side traces if server is outside the cluster (can't be resolved to pod or svc)
           df.remote_pod_id = px.ip_to_pod_id(df.remote_addr)
           df.remote_service_id = px.ip_to_service_id(df.remote_addr)
           df.remote_outside_cluster = df.remote_pod_id == '' and df.remote_service_id == ''
           df_client_traces = df[df.trace_role == 1 and df.remote_outside_cluster]
-
           df_server_traces = df[df.trace_role == 2]
           df_server_traces.append(df_client_traces)
           return df_server_traces
@@ -494,53 +475,37 @@ presetScripts:
       def add_source_dest_columns(df):
           df.pod = df.ctx['pod']
           df.namespace = df.ctx['namespace']
+          df.container = df.ctx['container'] 
 
           # If remote_addr is a pod, get its name. If not, use IP address.
           df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
-          df.is_ra_pod = df.ra_pod != ''
-          df.ra_name = px.select(df.is_ra_pod, df.ra_pod, df.remote_addr)
+          df.ra_name = px.select(df.ra_pod != '', df.ra_pod, px.nslookup(df.remote_addr))
 
           df.is_server_tracing = df.trace_role == 2
-          df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
-          df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
-
           # Set client and server based on trace_role.
           df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
           df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
 
-          df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
           df.source_service = px.pod_name_to_service_name(df.source_pod)
+          df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
           df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          df.destination_service = px.select(df.destination_service != '', df.destination_service, df.destination_pod)
+
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_container = px.select(df.is_server_tracing, '', df.container)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
-
-          # If the destination service is missing then try the nslookup
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              px.nslookup(df.remote_addr),
-          )
-          # If the destination service is still missing then set the remote_addr
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              df.remote_addr,
-          )
           return df
 
       df = px.DataFrame('mysql_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
       df = remove_duplicate_traces(df)
       df = add_source_dest_columns(df)
-
       df.normed_query_struct = px.normalize_mysql(df.req_body, df.req_cmd)
       df.query = px.pluck(df.normed_query_struct, 'query')
       df = df[df.query != ""]
-
       df.start_time = df.time_ - df.latency
       df.latency = df.latency / (1000 * 1000)
       df.req_bytes = px.length(df.req_body)
@@ -555,22 +520,23 @@ presetScripts:
         df, px.otel.Data(
           resource={
             'service.name': df.source_service,
-            'service.instance.id': df.source_pod,
-            'k8s.namespace.name': df.source_namespace,
-            'mysql.service.name': df.destination_service,
-            'mysql.pod.name': df.destination_pod,
-            'mysql.namespace.name': df.destination_namespace,
-            'k8s.cluster.name': df.cluster_name,
-            'px.cluster.id': df.cluster_id,
-            'instrumentation.provider': df.pixie,
           },
           data=[
+            # Export client span format for the client side of the request
             px.otel.trace.Span(
               name=df.query,
               start_time=df.start_time,
               end_time=df.time_,
-              kind=px.otel.trace.SPAN_KIND_CLIENT,
+              kind=px.otel.trace.SPAN_KIND_SERVER,
               attributes={
+                'service.instance.id': df.source_pod,
+                'k8s.namespace.name': df.source_namespace,
+                'mysql.service.name': df.destination_service,
+                'mysql.pod.name': df.destination_pod,
+                'mysql.namespace.name': df.destination_namespace,
+                'k8s.cluster.name': df.cluster_name,
+                'px.cluster.id': df.cluster_id,
+                'instrumentation.provider': df.pixie,
                 'mysql.req_cmd': df.req_cmd,
                 'mysql.req_body': df.req_body,
                 'mysql.req_bytes': df.req_bytes,
@@ -578,6 +544,23 @@ presetScripts:
                 'mysql.resp_latency': df.latency,
                 'mysql.resp_status': df.resp_status,
                 'mysql.resp_body': df.resp_body,
+                'db.system': df.db_system,
+              },
+            ),
+            # Export server span format for the server (MySQL) side of the request
+            px.otel.trace.Span(
+              name=df.query,
+              start_time=df.start_time,
+              end_time=df.time_,
+              kind=px.otel.trace.SPAN_KIND_CLIENT,
+              attributes={
+                'k8s.container.name': df.source_container,
+                'service.instance.id': df.source_pod,
+                'k8s.pod.name': df.source_pod,
+                'k8s.namespace.name': df.source_namespace,
+                'px.cluster.id': df.cluster_id,
+                'k8s.cluster.name': df.cluster_name,
+                'instrumentation.provider': df.pixie,
                 'db.system': df.db_system,
               },
             ),
@@ -618,40 +601,24 @@ presetScripts:
 
           # If remote_addr is a pod, get its name. If not, use IP address.
           df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
-          df.is_ra_pod = df.ra_pod != ''
-          df.ra_name = px.select(df.is_ra_pod, df.ra_pod, df.remote_addr)
+          df.ra_name = px.select(df.ra_pod != '', df.ra_pod, px.nslookup(df.remote_addr))
 
           df.is_server_tracing = df.trace_role == 2
-          df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
-          df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
-
           # Set client and server based on trace_role.
           df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
           df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
 
-          df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
           df.source_service = px.pod_name_to_service_name(df.source_pod)
+          df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
           df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          df.destination_service = px.select(df.destination_service != '', df.destination_service, df.destination_pod)
+
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
-
-          # If the destination service is missing then try the nslookup
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              px.nslookup(df.remote_addr),
-          )
-          # If the destination service is still missing then set the remote_addr
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              df.remote_addr,
-          )
           return df
 
       df = px.DataFrame('mysql_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
@@ -830,40 +797,24 @@ presetScripts:
 
           # If remote_addr is a pod, get its name. If not, use IP address.
           df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
-          df.is_ra_pod = df.ra_pod != ''
-          df.ra_name = px.select(df.is_ra_pod, df.ra_pod, df.remote_addr)
+          df.ra_name = px.select(df.ra_pod != '', df.ra_pod, px.nslookup(df.remote_addr))
 
           df.is_server_tracing = df.trace_role == 2
-          df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
-          df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
-
           # Set client and server based on trace_role.
           df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
           df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
 
-          df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
           df.source_service = px.pod_name_to_service_name(df.source_pod)
+          df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
           df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          df.destination_service = px.select(df.destination_service != '', df.destination_service, df.destination_pod)
+
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
-
-          # If the destination service is missing then try the nslookup
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              px.nslookup(df.remote_addr),
-          )
-          # If the destination service is still missing then set the remote_addr
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              df.remote_addr,
-          )
           return df
 
       df = px.DataFrame(table='kafka_events.beta', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
@@ -1061,40 +1012,24 @@ presetScripts:
 
           # If remote_addr is a pod, get its name. If not, use IP address.
           df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
-          df.is_ra_pod = df.ra_pod != ''
-          df.ra_name = px.select(df.is_ra_pod, df.ra_pod, df.remote_addr)
+          df.ra_name = px.select(df.ra_pod != '', df.ra_pod, px.nslookup(df.remote_addr))
 
           df.is_server_tracing = df.trace_role == 2
-          df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
-          df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
-
           # Set client and server based on trace_role.
           df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
           df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
 
-          df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
           df.source_service = px.pod_name_to_service_name(df.source_pod)
+          df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
           df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          df.destination_service = px.select(df.destination_service != '', df.destination_service, df.destination_pod)
+
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
-
-          # If the destination service is missing then try the nslookup
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              px.nslookup(df.remote_addr),
-          )
-          # If the destination service is still missing then set the remote_addr
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              df.remote_addr,
-          )
           return df
 
       df = px.DataFrame(table='kafka_events.beta', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
@@ -1107,7 +1042,9 @@ presetScripts:
       df = producer_df.append([consumer_df, remaining_df])
 
       # Convert latency from ns units to ms units.
-      df.start_time = df.time_ - df.latency
+      # Kafka/NATS/AMQP measure latency differently than the rest of the Pixie protocols.
+      df.start_time = df.time_
+      df.end_time = df.time_ + df.latency
       df.latency = df.latency / (1000.0 * 1000.0)
 
       # Get throughput by adding size of message_sets. Note that this is the total size of the
@@ -1140,8 +1077,8 @@ presetScripts:
                   px.otel.trace.Span(
                       name=df.span_name,
                       start_time=df.start_time,
-                      end_time=df.time_,
-                      kind=px.otel.trace.SPAN_KIND_CLIENT,
+                      end_time=df.end_time,
+                      kind=px.otel.trace.SPAN_KIND_SERVER,
                       attributes={
                           "kafka.client_id": df.client_id,
                           "kafka.has_error": df.has_error,
@@ -1174,40 +1111,24 @@ presetScripts:
 
           # If remote_addr is a pod, get its name. If not, use IP address.
           df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
-          df.is_ra_pod = df.ra_pod != ''
-          df.ra_name = px.select(df.is_ra_pod, df.ra_pod, df.remote_addr)
+          df.ra_name = px.select(df.ra_pod != '', df.ra_pod, px.nslookup(df.remote_addr))
 
           df.is_server_tracing = df.trace_role == 2
-          df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
-          df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
-
           # Set client and server based on trace_role.
           df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
           df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
 
-          df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
           df.source_service = px.pod_name_to_service_name(df.source_pod)
+          df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
           df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          df.destination_service = px.select(df.destination_service != '', df.destination_service, df.destination_pod)
+
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
-
-          # If the destination service is missing then try the nslookup
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              px.nslookup(df.remote_addr),
-          )
-          # If the destination service is still missing then set the remote_addr
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              df.remote_addr,
-          )
           return df
 
 
@@ -1240,7 +1161,7 @@ presetScripts:
             name=df.req_cmd,
             start_time=df.start_time,
             end_time=df.time_,
-            kind=px.otel.trace.SPAN_KIND_CLIENT,
+            kind=px.otel.trace.SPAN_KIND_SERVER,
             attributes={
               'redis.req_bytes': df.req_bytes,
               'redis.resp_bytes': df.resp_bytes,
@@ -1268,40 +1189,24 @@ presetScripts:
 
           # If remote_addr is a pod, get its name. If not, use IP address.
           df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
-          df.is_ra_pod = df.ra_pod != ''
-          df.ra_name = px.select(df.is_ra_pod, df.ra_pod, df.remote_addr)
+          df.ra_name = px.select(df.ra_pod != '', df.ra_pod, px.nslookup(df.remote_addr))
 
           df.is_server_tracing = df.trace_role == 2
-          df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
-          df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
-
           # Set client and server based on trace_role.
           df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
           df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
 
-          df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
           df.source_service = px.pod_name_to_service_name(df.source_pod)
+          df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
           df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          df.destination_service = px.select(df.destination_service != '', df.destination_service, df.destination_pod)
+
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
-
-          # If the destination service is missing then try the nslookup
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              px.nslookup(df.remote_addr),
-          )
-          # If the destination service is still missing then set the remote_addr
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              df.remote_addr,
-          )
           return df
 
       df = px.DataFrame('redis_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
@@ -1601,7 +1506,7 @@ presetScripts:
             name='dns',
             start_time=df.start_time,
             end_time=df.time_,
-            kind=px.otel.trace.SPAN_KIND_CLIENT,
+            kind=px.otel.trace.SPAN_KIND_SERVER,
             attributes={
                 'dns.latency': df.latency,
                 'dns.req_body': df.req_body,
@@ -1647,40 +1552,24 @@ presetScripts:
 
           # If remote_addr is a pod, get its name. If not, use IP address.
           df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
-          df.is_ra_pod = df.ra_pod != ''
-          df.ra_name = px.select(df.is_ra_pod, df.ra_pod, df.remote_addr)
+          df.ra_name = px.select(df.ra_pod != '', df.ra_pod, px.nslookup(df.remote_addr))
 
           df.is_server_tracing = df.trace_role == 2
-          df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
-          df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
-
           # Set client and server based on trace_role.
           df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
           df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
 
-          df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
           df.source_service = px.pod_name_to_service_name(df.source_pod)
+          df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
           df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          df.destination_service = px.select(df.destination_service != '', df.destination_service, df.destination_pod)
+
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
-
-          # If the destination service is missing then try the nslookup
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              px.nslookup(df.remote_addr),
-          )
-          # If the destination service is still missing then set the remote_addr
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              df.remote_addr,
-          )
           return df
 
       df = px.DataFrame('cql_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
@@ -1723,7 +1612,7 @@ presetScripts:
               name=df.req_cmd,
               start_time=df.start_time,
               end_time=df.time_,
-              kind=px.otel.trace.SPAN_KIND_CLIENT,
+              kind=px.otel.trace.SPAN_KIND_SERVER,
             ),
           ],
         ),
@@ -1757,40 +1646,24 @@ presetScripts:
 
           # If remote_addr is a pod, get its name. If not, use IP address.
           df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
-          df.is_ra_pod = df.ra_pod != ''
-          df.ra_name = px.select(df.is_ra_pod, df.ra_pod, df.remote_addr)
+          df.ra_name = px.select(df.ra_pod != '', df.ra_pod, px.nslookup(df.remote_addr))
 
           df.is_server_tracing = df.trace_role == 2
-          df.is_source_pod_type = px.select(df.is_server_tracing, df.is_ra_pod, True)
-          df.is_dest_pod_type = px.select(df.is_server_tracing, True, df.is_ra_pod)
-
           # Set client and server based on trace_role.
           df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
           df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
 
-          df = df.drop(['ra_pod', 'is_ra_pod', 'ra_name', 'is_server_tracing'])
           df.source_service = px.pod_name_to_service_name(df.source_pod)
+          df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
           df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          df.destination_service = px.select(df.destination_service != '', df.destination_service, df.destination_pod)
+
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
-
-          # If the destination service is missing then try the nslookup
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              px.nslookup(df.remote_addr),
-          )
-          # If the destination service is still missing then set the remote_addr
-          df.destination_service = px.select(
-              df.destination_service != '',
-              df.destination_service,
-              df.remote_addr,
-          )
           return df
 
       df = px.DataFrame('cql_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
