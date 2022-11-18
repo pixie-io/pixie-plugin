@@ -1729,7 +1729,7 @@ presetScripts:
         ),
       )
   - name: AMQP Spans
-    defaultDisabled: true
+    defaultDisabled: false
     defaultFrequencyS: 10
     script: |-
       #px:set max_output_rows_per_table=500
@@ -1838,7 +1838,7 @@ presetScripts:
         ),
       )
   - name: AMQP Metrics
-    defaultDisabled: true
+    defaultDisabled: false
     defaultFrequencyS: 10
     script: |-
       #px:set max_output_rows_per_table=10000
