@@ -1324,8 +1324,7 @@ presetScripts:
       # Convert latency from ns units to ms units.
       df.latency = df.latency / (1000 * 1000)
       # Aggregate by each pod making a query to a particular DNS.
-      df = df.groupby(['container', 'pod', 'deployment', 'service', 'dns_server', 'query', 'namespace', 'node', 'rcode',
-                         'rcode_name', 'resolved', 'query_type']).agg(
+      df = df.groupby(['container', 'pod', 'deployment', 'service', 'dns_server', 'query', 'namespace', 'node', 'rcode', 'rcode_name', 'resolved', 'query_type']).agg(
           time_=('time_', px.max),
           latency_max=('latency', px.max),
           latency_min=('latency', px.min),
