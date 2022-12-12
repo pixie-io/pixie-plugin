@@ -1282,6 +1282,7 @@ presetScripts:
       df.service = df.ctx['service']
       df.namespace = df.ctx['namespace']
       df.node = df.ctx['node']
+      df.deployment = df.ctx['deployment']
       df.container = df.ctx['container']
       df = df.drop(['upid'])
       # Extract some fields into their own columns for convenience.
@@ -1317,12 +1318,14 @@ presetScripts:
       def remove_ns_prefix(column):
           return px.replace('[a-z0-9\-]*/', column, '')
       df.pod = remove_ns_prefix(df.pod)
+      df.deployment = remove_ns_prefix(df.deployment)
       df.service = remove_ns_prefix(df.service)
       # Before aggregating, output individual requests to drawer.
       # Convert latency from ns units to ms units.
       df.latency = df.latency / (1000 * 1000)
       # Aggregate by each pod making a query to a particular DNS.
-      df = df.groupby(['container', 'pod', 'service', 'dns_server', 'query', 'namespace', 'node', 'rcode', 'rcode_name', 'resolved', 'query_type']).agg(
+      df = df.groupby(['container', 'pod', 'deployment', 'service', 'dns_server', 'query', 'namespace', 'node', 'rcode',
+                         'rcode_name', 'resolved', 'query_type']).agg(
           time_=('time_', px.max),
           latency_max=('latency', px.max),
           latency_min=('latency', px.min),
@@ -1342,6 +1345,8 @@ presetScripts:
           'service.name': df.service,
           'service.instance.id': df.pod,
           'k8s.pod.name': df.pod,
+          'k8s.deployment.name': df.deployment,
+          'k8s.node.name': df.node,
           'k8s.namespace.name': df.namespace,
           'k8s.container.name': df.container,
           'k8s.cluster.name': df.cluster_name,
@@ -1386,9 +1391,9 @@ presetScripts:
       df.service = df.ctx['service']
       df.namespace = df.ctx['namespace']
       df.node = df.ctx['node']
+      df.deployment = df.ctx['deployment']
       df.container = df.ctx['container']
       df = df.drop(['upid'])
-
 
       # Extract some fields into their own columns for convenience.
       df.queries = px.pluck(df.req_body, 'queries')
@@ -1426,6 +1431,7 @@ presetScripts:
           return px.replace('[a-z0-9\-]*/', column, '')
 
       df.pod = remove_ns_prefix(df.pod)
+      df.deployment = remove_ns_prefix(df.deployment)
       df.service = remove_ns_prefix(df.service)
 
       df.start_time = df.time_ - df.latency
@@ -1447,6 +1453,8 @@ presetScripts:
           'service.name': df.service,
           'service.instance.id': df.pod,
           'k8s.pod.name': df.pod,
+          'k8s.deployment.name': df.deployment,
+          'k8s.node.name': df.node,
           'k8s.namespace.name': df.namespace,
           'k8s.container.name': df.container,
           'k8s.cluster.name': df.cluster_name,
