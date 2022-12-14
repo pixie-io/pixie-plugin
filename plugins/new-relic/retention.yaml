@@ -1273,6 +1273,30 @@ presetScripts:
       #px:set max_output_rows_per_table=10000
       import px
 
+      def dns_rcode_name(df, input_col_name, output_col_name):
+          df[output_col_name] = 'UNKNOWN'
+          df[output_col_name] = px.select(df[input_col_name]==0, 'NOERROR', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==1, 'FORMERR', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==2, 'SERVFAIL', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==3, 'NXDOMAIN', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==4, 'NOTIMP', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==5, 'REFUSED', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==6, 'YXDOMAIN', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==7, 'YXRRSET', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==8, 'NXRRSET', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==9, 'NOTAUTH', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==10, 'NOTZONE', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==11, 'DSOTYPENI', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==16, 'BADVERS', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==17, 'BADKEY', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==18, 'BADTIME', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==19, 'BADMODE', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==20, 'BADNAME', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==21, 'BADALG', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==22, 'BADTRUNC', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==23, 'BADCOOKIE', df[output_col_name])
+          return df
+
       df = px.DataFrame('dns_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
       df = df[df.trace_role == 1]
       df = df.drop(['trace_role'])
@@ -1289,7 +1313,7 @@ presetScripts:
       df.queries = px.pluck(df.req_body, 'queries')
       df.answers = px.pluck(df.resp_body, 'answers')
       df.rcode = px.pluck_int64(df.resp_header, 'rcode')
-      df.rcode_name = px.dns_rcode_name(df.rcode)
+      df = dns_rcode_name(df, 'rcode', 'rcode_name')
       df.resolved = px.contains(df.answers, 'name')
       df.query = px.replace('.*"name":"(.*?)".*', df.queries, '\\1')
       df.query_type = px.replace('.*"type":"(.*?)".*', df.queries, '\\1')
@@ -1381,6 +1405,30 @@ presetScripts:
       #px:set max_output_rows_per_table=500
       import px
 
+      def dns_rcode_name(df, input_col_name, output_col_name):
+          df[output_col_name] = 'UNKNOWN'
+          df[output_col_name] = px.select(df[input_col_name]==0, 'NOERROR', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==1, 'FORMERR', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==2, 'SERVFAIL', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==3, 'NXDOMAIN', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==4, 'NOTIMP', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==5, 'REFUSED', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==6, 'YXDOMAIN', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==7, 'YXRRSET', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==8, 'NXRRSET', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==9, 'NOTAUTH', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==10, 'NOTZONE', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==11, 'DSOTYPENI', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==16, 'BADVERS', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==17, 'BADKEY', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==18, 'BADTIME', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==19, 'BADMODE', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==20, 'BADNAME', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==21, 'BADALG', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==22, 'BADTRUNC', df[output_col_name])
+          df[output_col_name] = px.select(df[input_col_name]==23, 'BADCOOKIE', df[output_col_name])
+          return df
+
       df = px.DataFrame('dns_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
       df = df[df.trace_role == 1]
       df = df.drop(['trace_role'])
@@ -1398,7 +1446,7 @@ presetScripts:
       df.queries = px.pluck(df.req_body, 'queries')
       df.answers = px.pluck(df.resp_body, 'answers')
       df.rcode = px.pluck_int64(df.resp_header, 'rcode')
-      df.rcode_name = px.dns_rcode_name(df.rcode)
+      df = dns_rcode_name(df, 'rcode', 'rcode_name')
       df.resolved = px.contains(df.answers, 'name')
 
       df.query = px.replace('.*"name":"(.*?)".*', df.queries, '\\1')
