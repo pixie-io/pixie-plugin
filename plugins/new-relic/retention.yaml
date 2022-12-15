@@ -11,27 +11,62 @@ presetScripts:
 
       import px
 
+      def remove_ns_prefix(column):
+          return px.replace('[a-z0-9\-]*/', column, '')
+
+      def add_source_dest_columns(df):
+          df.pod = df.ctx['pod']
+          df.node = df.ctx['node']
+          df.namespace = df.ctx['namespace']
+          df.container = df.ctx['container']
+          df.deployment = df.ctx['deployment']
+
+          # If remote_addr is a pod, get its name. If not, use IP address.
+          df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
+          df.ra_name = px.select(df.ra_pod != '', df.ra_pod, px.nslookup(df.remote_addr))
+          df.ra_node = px.pod_id_to_node_name(px.ip_to_pod_id(df.remote_addr))
+          df.ra_deployment = px.pod_id_to_deployment_name(px.ip_to_pod_id(df.remote_addr))
+
+          df.is_server_tracing = df.trace_role == 2
+          # Set client and server based on trace_role.
+          df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
+          df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
+          df.destination_node = px.select(df.is_server_tracing, df.node, df.ra_node)
+          df.destination_deployment = px.select(df.is_server_tracing, df.deployment, df.ra_deployment)
+
+          df.source_service = px.pod_name_to_service_name(df.source_pod)
+          df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
+          df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          df.destination_service = px.select(df.destination_service != '', df.destination_service, df.destination_pod)
+
+          df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
+          df.source_namespace = px.pod_name_to_namespace(df.source_pod)
+          df.source_node = px.pod_id_to_node_name(px.pod_name_to_pod_id(df.source_pod))
+          df.source_deployment = px.pod_name_to_deployment_name(df.source_pod)
+          df.source_deployment = remove_ns_prefix(df.source_deployment)
+          df.source_service = remove_ns_prefix(df.source_service)
+          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_container = px.select(df.is_server_tracing, '', df.container)
+          df.source_pod = remove_ns_prefix(df.source_pod)
+          df.destination_pod = remove_ns_prefix(df.destination_pod)
+          return df
+
       df = px.DataFrame(table='http_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
+      df = add_source_dest_columns(df)
 
-      ns_prefix = df.ctx['namespace'] + '/'
-      df.container = df.ctx['container_name']
-      df.pod = px.strip_prefix(ns_prefix, df.ctx['pod'])
-      df.service = px.strip_prefix(ns_prefix, df.ctx['service'])
-      df.namespace = df.ctx['namespace']
+      df.latency = df.latency / (1000 * 1000)
+      df.req_bytes = px.length(df.req_body)
+      df.resp_bytes = px.length(df.resp_body)
 
-      df.status_code = df.resp_status
-
-      df = df.groupby(['status_code', 'pod', 'container','service', 'namespace']).agg(
+      df = df.groupby(['resp_status', 'req_path', 'source_pod', 'source_container', 'source_deployment', 'source_node', 'source_service', 'source_namespace']).agg(
           latency_min=('latency', px.min),
           latency_max=('latency', px.max),
           latency_sum=('latency', px.sum),
           latency_count=('latency', px.count),
           time_=('time_', px.max),
+          req_bytes=('req_bytes', px.sum),
+          resp_bytes=('resp_bytes', px.sum),
       )
-
-      df.latency_min = df.latency_min / 1000000
-      df.latency_max = df.latency_max / 1000000
-      df.latency_sum = df.latency_sum / 1000000
 
       df.cluster_name = px.vizier_name()
       df.cluster_id = px.vizier_id()
@@ -40,13 +75,14 @@ presetScripts:
       px.export(
         df, px.otel.Data(
           resource={
-            'service.name': df.service,
-            'k8s.container.name': df.container,
-            'service.instance.id': df.pod,
-            'k8s.pod.name': df.pod,
-            'k8s.namespace.name': df.namespace,
-            'px.cluster.id': df.cluster_id,
+            'service.name': df.source_service,
+            'service.instance.id': df.source_pod,
+            'k8s.container.name': df.source_container,
+            'k8s.deployment.name': df.source_deployment,
+            'k8s.namespace.name': df.source_namespace,
+            'k8s.node.name': df.source_node,
             'k8s.cluster.name': df.cluster_name,
+            'px.cluster.id': df.cluster_id,
             'instrumentation.provider': df.pixie,
           },
           data=[
@@ -61,9 +97,21 @@ presetScripts:
                 1.0: df.latency_max,
               },
               attributes={
-                'http.status_code': df.status_code,
+                'http.status_code': df.resp_status,
+                'http.target': df.req_path,
               },
-          )],
+          )
+          px.otel.metric.Gauge(
+            name='http.req_bytes',
+            description='',
+            value=df.req_bytes,
+          ),
+          px.otel.metric.Gauge(
+            name='http.resp_bytes',
+            description='',
+            value=df.resp_bytes,
+          )
+          ],
         ),
       )
     defaultFrequencyS: 10
@@ -74,22 +122,53 @@ presetScripts:
 
       import px
 
-      df = px.DataFrame('http_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
+      def remove_ns_prefix(column):
+          return px.replace('[a-z0-9\-]*/', column, '')
 
-      ns_prefix = df.ctx['namespace'] + '/'
-      df.container = df.ctx['container_name']
-      df.pod = px.strip_prefix(ns_prefix, df.ctx['pod'])
-      df.service = px.strip_prefix(ns_prefix, df.ctx['service'])
-      df.namespace = df.ctx['namespace']
+      def add_source_dest_columns(df):
+          df.pod = df.ctx['pod']
+          df.node = df.ctx['node']
+          df.namespace = df.ctx['namespace']
+          df.container = df.ctx['container']
+          df.deployment = df.ctx['deployment']
+
+          # If remote_addr is a pod, get its name. If not, use IP address.
+          df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
+          df.ra_name = px.select(df.ra_pod != '', df.ra_pod, px.nslookup(df.remote_addr))
+          df.ra_node = px.pod_id_to_node_name(px.ip_to_pod_id(df.remote_addr))
+          df.ra_deployment = px.pod_id_to_deployment_name(px.ip_to_pod_id(df.remote_addr))
+
+          df.is_server_tracing = df.trace_role == 2
+          # Set client and server based on trace_role.
+          df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
+          df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
+          df.destination_node = px.select(df.is_server_tracing, df.node, df.ra_node)
+          df.destination_deployment = px.select(df.is_server_tracing, df.deployment, df.ra_deployment)
+
+          df.source_service = px.pod_name_to_service_name(df.source_pod)
+          df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
+          df.destination_service = px.pod_name_to_service_name(df.destination_pod)
+          df.destination_service = px.select(df.destination_service != '', df.destination_service, df.destination_pod)
+
+          df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
+          df.source_namespace = px.pod_name_to_namespace(df.source_pod)
+          df.source_node = px.pod_id_to_node_name(px.pod_name_to_pod_id(df.source_pod))
+          df.source_deployment = px.pod_name_to_deployment_name(df.source_pod)
+          df.source_deployment = remove_ns_prefix(df.source_deployment)
+          df.source_service = remove_ns_prefix(df.source_service)
+          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_container = px.select(df.is_server_tracing, '', df.container)
+          df.source_pod = remove_ns_prefix(df.source_pod)
+          df.destination_pod = remove_ns_prefix(df.destination_pod)
+          return df
+
+      df = px.DataFrame('http_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
+      df = add_source_dest_columns(df)
 
       df = df.head(15000)
-      df.req_start_time = df.time_ - df.latency
-      df.parent_pod_id = px.ip_to_pod_id(df.remote_addr)
-      df.parent_service = px.replace('.*/', px.pod_id_to_service_name(df.parent_pod_id), '')
-      df.parent_pod = px.replace('.*/', px.pod_id_to_pod_name(df.parent_pod_id), '')
+      df.start_time = df.time_ - df.latency
       df.host = px.pluck(df.req_headers, 'Host')
       df.req_url = df.host + df.req_path
-
       df.user_agent = px.pluck(df.req_headers, 'User-Agent')
       df.trace_id = px.pluck(df.req_headers, 'X-B3-TraceId')
       df.span_id = px.pluck(df.req_headers, 'X-B3-SpanId')
@@ -108,19 +187,21 @@ presetScripts:
       px.export(
         df, px.otel.Data(
           resource={
-            'service.name': df.service,
-            'k8s.container.name': df.container,
-            'service.instance.id': df.pod,
-            'k8s.pod.name': df.pod,
-            'k8s.namespace.name': df.namespace,
-            'px.cluster.id': df.cluster_id,
+            'service.name': df.source_service,
+            'service.instance.id': df.source_pod,
+            'k8s.pod.name': df.source_pod,
+            'k8s.container.name': df.source_container,
+            'k8s.deployment.name': df.source_deployment,
+            'k8s.namespace.name': df.source_namespace,
+            'k8s.node.name': df.source_node,
             'k8s.cluster.name': df.cluster_name,
+            'px.cluster.id': df.cluster_id,
             'instrumentation.provider': df.pixie,
           },
           data=[
             px.otel.trace.Span(
               name=df.req_path,
-              start_time=df.req_start_time,
+              start_time=df.start_time,
               end_time=df.time_,
               trace_id=df.trace_id,
               span_id=df.span_id,
@@ -128,8 +209,8 @@ presetScripts:
               kind=px.otel.trace.SPAN_KIND_SERVER,
               attributes={
                 # NOTE: the integration handles splitting of services.
-                'parent.service.name': df.parent_service,
-                'parent.k8s.pod.name': df.parent_pod,
+                'parent.service.name': df.destination_service,
+                'parent.k8s.pod.name': df.destination_pod,
                 'http.method': df.req_method,
                 'http.url': df.req_url,
                 'http.target': df.req_path,
