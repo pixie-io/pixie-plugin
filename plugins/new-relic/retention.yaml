@@ -1107,16 +1107,22 @@ presetScripts:
 
       def add_source_dest_columns(df):
           df.pod = df.ctx['pod']
+          df.node = df.ctx['node']
+          df.deployment = df.ctx['deployment']
           df.namespace = df.ctx['namespace']
 
           # If remote_addr is a pod, get its name. If not, use IP address.
           df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
           df.ra_name = px.select(df.ra_pod != '', df.ra_pod, px.nslookup(df.remote_addr))
+          df.ra_node = px.pod_id_to_node_name(px.ip_to_pod_id(df.remote_addr))
+          df.ra_deployment = px.pod_id_to_deployment_name(px.ip_to_pod_id(df.remote_addr))
 
           df.is_server_tracing = df.trace_role == 2
           # Set client and server based on trace_role.
           df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
           df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
+          df.destination_node = px.select(df.is_server_tracing, df.node, df.ra_node)
+          df.destination_deployment = px.select(df.is_server_tracing, df.deployment, df.ra_deployment)
 
           df.source_service = px.pod_name_to_service_name(df.source_pod)
           df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
@@ -1125,10 +1131,13 @@ presetScripts:
 
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
+          df.source_node = px.pod_id_to_node_name(px.pod_name_to_pod_id(df.source_pod))
+          df.source_deployment = remove_ns_prefix(px.pod_name_to_deployment_name(df.source_pod))
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
+          df.destination_deployment = remove_ns_prefix(df.destination_deployment)
           return df
 
 
@@ -1142,19 +1151,25 @@ presetScripts:
       df.pixie = 'pixie'
       df.cluster_id = px.vizier_id()
       df.cluster_name = px.vizier_name()
+      df.db_system = 'redis'
 
       px.export(df, px.otel.Data(
         resource={
           'service.name': df.source_service,
           'service.instance.id': df.source_pod,
+          'k8s.deployment.name': df.source_deployment,
           'k8s.namespace.name': df.source_namespace,
+          'k8s.node.name': df.source_node,
           'redis.service.name': df.destination_service,
           'redis.pod.name': df.destination_pod,
+          'redis.node.name': df.destination_node,
+          'redis.deployment.name': df.destination_deployment,
           'redis.namespace.name': df.destination_namespace,
           'redis.req_cmd': df.req_cmd,
           'k8s.cluster.name': df.cluster_name,
           'px.cluster.id': df.cluster_id,
           'instrumentation.provider': df.pixie,
+          'db.system': df.db_system,
         },
         data=[
           px.otel.trace.Span(
@@ -1185,16 +1200,22 @@ presetScripts:
 
       def add_source_dest_columns(df):
           df.pod = df.ctx['pod']
+          df.node = df.ctx['node']
+          df.deployment = df.ctx['deployment']
           df.namespace = df.ctx['namespace']
 
           # If remote_addr is a pod, get its name. If not, use IP address.
           df.ra_pod = px.pod_id_to_pod_name(px.ip_to_pod_id(df.remote_addr))
           df.ra_name = px.select(df.ra_pod != '', df.ra_pod, px.nslookup(df.remote_addr))
+          df.ra_node = px.pod_id_to_node_name(px.ip_to_pod_id(df.remote_addr))
+          df.ra_deployment = px.pod_id_to_deployment_name(px.ip_to_pod_id(df.remote_addr))
 
           df.is_server_tracing = df.trace_role == 2
           # Set client and server based on trace_role.
           df.source_pod = px.select(df.is_server_tracing, df.ra_name, df.pod)
           df.destination_pod = px.select(df.is_server_tracing, df.pod, df.ra_name)
+          df.destination_node = px.select(df.is_server_tracing, df.node, df.ra_node)
+          df.destination_deployment = px.select(df.is_server_tracing, df.deployment, df.ra_deployment)
 
           df.source_service = px.pod_name_to_service_name(df.source_pod)
           df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
@@ -1203,10 +1224,13 @@ presetScripts:
 
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
+          df.source_node = px.pod_id_to_node_name(px.pod_name_to_pod_id(df.source_pod))
+          df.source_deployment = remove_ns_prefix(px.pod_name_to_deployment_name(df.source_pod))
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
+          df.destination_deployment = remove_ns_prefix(df.destination_deployment)
           return df
 
       df = px.DataFrame('redis_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
@@ -1215,7 +1239,7 @@ presetScripts:
       df.latency = df.latency / (1000 * 1000)
       df.req_bytes = px.length(df.req_args)
       df.resp_bytes = px.length(df.resp)
-      df = df.groupby(['req_cmd', 'source_pod', 'source_service', 'source_namespace', 'destination_pod', 'destination_service', 'destination_namespace']).agg(
+      df = df.groupby(['req_cmd', 'source_pod', 'source_service', 'source_namespace', 'source_deployment', 'source_node', 'destination_pod', 'destination_node', 'destination_deployment','destination_service', 'destination_namespace']).agg(
           latency_count=('latency', px.count),
           latency_min=('latency', px.min),
           latency_max=('latency', px.max),
@@ -1228,19 +1252,25 @@ presetScripts:
       df.pixie = 'pixie'
       df.cluster_id = px.vizier_id()
       df.cluster_name = px.vizier_name()
+      df.db_system = 'redis'
 
       px.export(df, px.otel.Data(
         resource={
           'service.name': df.source_service,
           'service.instance.id': df.source_pod,
+          'k8s.deployment.name': df.source_deployment,
           'k8s.namespace.name': df.source_namespace,
+          'k8s.node.name': df.source_node,
           'redis.service.name': df.destination_service,
           'redis.pod.name': df.destination_pod,
+          'redis.node.name': df.destination_node,
+          'redis.deployment.name': df.destination_deployment,
           'redis.namespace.name': df.destination_namespace,
           'redis.req_cmd': df.req_cmd,
           'k8s.cluster.name': df.cluster_name,
           'px.cluster.id': df.cluster_id,
           'instrumentation.provider': df.pixie,
+          'db.system': df.db_system,
         },
         data=[
           px.otel.metric.Summary(
