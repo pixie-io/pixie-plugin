@@ -1768,7 +1768,10 @@ presetScripts:
           df.destination_service = px.pod_name_to_service_name(df.destination_pod)
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
+          df.source_node = px.pod_id_to_node_name(px.pod_name_to_pod_id(df.source_pod))
+          df.source_deployment = px.pod_name_to_deployment_name(df.source_pod)
 
+          df.source_deployment = remove_ns_prefix(df.source_deployment)
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
           df.source_pod = remove_ns_prefix(df.source_pod)
@@ -1818,7 +1821,9 @@ presetScripts:
           resource={
             'service.name': df.source_service,
             'service.instance.id': df.source_pod,
+            'k8s.deployment.name': df.source_deployment,
             'k8s.namespace.name': df.source_namespace,
+            'k8s.node.name': df.source_node,
             'amqp.service.name': df.destination_service,
             'amqp.pod.name': df.destination_pod,
             'amqp.node.name': df.destination_node,
@@ -1886,7 +1891,10 @@ presetScripts:
           df.destination_service = px.pod_name_to_service_name(df.destination_pod)
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
+          df.source_node = px.pod_id_to_node_name(px.pod_name_to_pod_id(df.source_pod))
+          df.source_deployment = px.pod_name_to_deployment_name(df.source_pod)
 
+          df.source_deployment = remove_ns_prefix(df.source_deployment)
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
           df.source_pod = remove_ns_prefix(df.source_pod)
@@ -1923,7 +1931,7 @@ presetScripts:
       df.consumer_tag = px.pluck(df.resp_msg, "consumer_tag")
       df.routing_key = px.select(df.req_routing_key != '', df.req_routing_key, df.resp_routing_key)
 
-      df = df.groupby(['source_pod', 'source_service', 'source_namespace', 'destination_pod', 'destination_node',
+      df = df.groupby(['source_pod', 'source_service', 'source_namespace', 'source_node', 'source_deployment', 'destination_pod', 'destination_node',
                       'destination_deployment', 'destination_service', 'destination_namespace',  'frame_name', 'req_name',
                       'resp_name', 'routing_key', 'consumer_tag']).agg(
           req_bytes=('req_bytes', px.sum),
@@ -1941,7 +1949,9 @@ presetScripts:
           resource={
             'service.name': df.source_service,
             'service.instance.id': df.source_pod,
+            'k8s.deployment.name': df.source_deployment,
             'k8s.namespace.name': df.source_namespace,
+            'k8s.node.name': df.source_node,
             'amqp.service.name': df.destination_service,
             'amqp.pod.name': df.destination_pod,
             'amqp.node.name': df.destination_node,
