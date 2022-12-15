@@ -1131,6 +1131,8 @@ presetScripts:
 
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
+          df.source_node = px.pod_id_to_node_name(px.pod_name_to_pod_id(df.source_pod))
+          df.source_deployment = remove_ns_prefix(px.pod_name_to_deployment_name(df.source_pod))
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
           df.source_pod = remove_ns_prefix(df.source_pod)
@@ -1155,7 +1157,9 @@ presetScripts:
         resource={
           'service.name': df.source_service,
           'service.instance.id': df.source_pod,
+          'k8s.deployment.name': df.source_deployment,
           'k8s.namespace.name': df.source_namespace,
+          'k8s.node.name': df.source_node,
           'redis.service.name': df.destination_service,
           'redis.pod.name': df.destination_pod,
           'redis.node.name': df.destination_node,
@@ -1220,6 +1224,8 @@ presetScripts:
 
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
+          df.source_node = px.pod_id_to_node_name(px.pod_name_to_pod_id(df.source_pod))
+          df.source_deployment = remove_ns_prefix(px.pod_name_to_deployment_name(df.source_pod))
           df.source_service = remove_ns_prefix(df.source_service)
           df.destination_service = remove_ns_prefix(df.destination_service)
           df.source_pod = remove_ns_prefix(df.source_pod)
@@ -1233,7 +1239,7 @@ presetScripts:
       df.latency = df.latency / (1000 * 1000)
       df.req_bytes = px.length(df.req_args)
       df.resp_bytes = px.length(df.resp)
-      df = df.groupby(['req_cmd', 'source_pod', 'source_service', 'source_namespace', 'destination_pod', 'destination_node', 'destination_deployment','destination_service', 'destination_namespace']).agg(
+      df = df.groupby(['req_cmd', 'source_pod', 'source_service', 'source_namespace', 'source_deployment', 'source_node', 'destination_pod', 'destination_node', 'destination_deployment','destination_service', 'destination_namespace']).agg(
           latency_count=('latency', px.count),
           latency_min=('latency', px.min),
           latency_max=('latency', px.max),
@@ -1252,7 +1258,9 @@ presetScripts:
         resource={
           'service.name': df.source_service,
           'service.instance.id': df.source_pod,
+          'k8s.deployment.name': df.source_deployment,
           'k8s.namespace.name': df.source_namespace,
+          'k8s.node.name': df.source_node,
           'redis.service.name': df.destination_service,
           'redis.pod.name': df.destination_pod,
           'redis.node.name': df.destination_node,
