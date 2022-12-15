@@ -17,7 +17,6 @@ presetScripts:
       def add_source_dest_columns(df):
           df.pod = df.ctx['pod']
           df.node = df.ctx['node']
-          df.namespace = df.ctx['namespace']
           df.container = df.ctx['container']
           df.deployment = df.ctx['deployment']
 
@@ -55,17 +54,12 @@ presetScripts:
       df = add_source_dest_columns(df)
 
       df.latency = df.latency / (1000 * 1000)
-      df.req_bytes = px.length(df.req_body)
-      df.resp_bytes = px.length(df.resp_body)
-
       df = df.groupby(['resp_status', 'req_path', 'source_pod', 'source_container', 'source_deployment', 'source_node', 'source_service', 'source_namespace']).agg(
           latency_min=('latency', px.min),
           latency_max=('latency', px.max),
           latency_sum=('latency', px.sum),
           latency_count=('latency', px.count),
           time_=('time_', px.max),
-          req_bytes=('req_bytes', px.sum),
-          resp_bytes=('resp_bytes', px.sum),
       )
 
       df.cluster_name = px.vizier_name()
@@ -81,8 +75,8 @@ presetScripts:
             'k8s.deployment.name': df.source_deployment,
             'k8s.namespace.name': df.source_namespace,
             'k8s.node.name': df.source_node,
-            'k8s.cluster.name': df.cluster_name,
             'px.cluster.id': df.cluster_id,
+            'k8s.cluster.name': df.cluster_name,
             'instrumentation.provider': df.pixie,
           },
           data=[
@@ -98,20 +92,8 @@ presetScripts:
               },
               attributes={
                 'http.status_code': df.resp_status,
-                'http.target': df.req_path,
               },
-          )
-          px.otel.metric.Gauge(
-            name='http.req_bytes',
-            description='',
-            value=df.req_bytes,
-          ),
-          px.otel.metric.Gauge(
-            name='http.resp_bytes',
-            description='',
-            value=df.resp_bytes,
-          )
-          ],
+          )],
         ),
       )
     defaultFrequencyS: 10
@@ -128,7 +110,6 @@ presetScripts:
       def add_source_dest_columns(df):
           df.pod = df.ctx['pod']
           df.node = df.ctx['node']
-          df.namespace = df.ctx['namespace']
           df.container = df.ctx['container']
           df.deployment = df.ctx['deployment']
 
@@ -189,13 +170,13 @@ presetScripts:
           resource={
             'service.name': df.source_service,
             'service.instance.id': df.source_pod,
-            'k8s.pod.name': df.source_pod,
             'k8s.container.name': df.source_container,
+            'k8s.pod.name': df.source_pod,
             'k8s.deployment.name': df.source_deployment,
             'k8s.namespace.name': df.source_namespace,
             'k8s.node.name': df.source_node,
-            'k8s.cluster.name': df.cluster_name,
             'px.cluster.id': df.cluster_id,
+            'k8s.cluster.name': df.cluster_name,
             'instrumentation.provider': df.pixie,
           },
           data=[
