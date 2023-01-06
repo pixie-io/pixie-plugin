@@ -282,8 +282,8 @@ presetScripts:
 
         df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
         df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-        df.source_service = remove_ns_prefix(df.source_service)
-        df.destination_service = remove_ns_prefix(df.destination_service)
+        df.source_service = px.Service(remove_ns_prefix(df.source_service))
+        df.destination_service = px.Service(remove_ns_prefix(df.destination_service))
         df.source_container = px.select(df.is_server_tracing, '', df.container)
         df.source_pod = remove_ns_prefix(df.source_pod)
         df.destination_pod = remove_ns_prefix(df.destination_pod)
@@ -380,8 +380,8 @@ presetScripts:
 
         df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
         df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-        df.source_service = remove_ns_prefix(df.source_service)
-        df.destination_service = remove_ns_prefix(df.destination_service)
+        df.source_service = px.Service(remove_ns_prefix(df.source_service))
+        df.destination_service = px.Service(remove_ns_prefix(df.destination_service))
         df.source_pod = remove_ns_prefix(df.source_pod)
         df.destination_pod = remove_ns_prefix(df.destination_pod)
         return df
@@ -493,8 +493,8 @@ presetScripts:
 
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-          df.source_service = remove_ns_prefix(df.source_service)
-          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_service = px.Service(remove_ns_prefix(df.source_service))
+          df.destination_service = px.Service(remove_ns_prefix(df.destination_service))
           df.source_container = px.select(df.is_server_tracing, '', df.container)
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
@@ -615,8 +615,8 @@ presetScripts:
 
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-          df.source_service = remove_ns_prefix(df.source_service)
-          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_service = px.Service(remove_ns_prefix(df.source_service))
+          df.destination_service = px.Service(remove_ns_prefix(df.destination_service))
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           return df
@@ -811,8 +811,8 @@ presetScripts:
 
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-          df.source_service = remove_ns_prefix(df.source_service)
-          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_service = px.Service(remove_ns_prefix(df.source_service))
+          df.destination_service = px.Service(remove_ns_prefix(df.destination_service))
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           return df
@@ -1026,8 +1026,8 @@ presetScripts:
 
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-          df.source_service = remove_ns_prefix(df.source_service)
-          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_service = px.Service(remove_ns_prefix(df.source_service))
+          df.destination_service = px.Service(remove_ns_prefix(df.destination_service))
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           return df
@@ -1133,8 +1133,8 @@ presetScripts:
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
           df.source_node = px.pod_id_to_node_name(px.pod_name_to_pod_id(df.source_pod))
           df.source_deployment = remove_ns_prefix(px.pod_name_to_deployment_name(df.source_pod))
-          df.source_service = remove_ns_prefix(df.source_service)
-          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_service = px.Service(remove_ns_prefix(df.source_service))
+          df.destination_service = px.Service(remove_ns_prefix(df.destination_service))
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           df.destination_deployment = remove_ns_prefix(df.destination_deployment)
@@ -1226,8 +1226,8 @@ presetScripts:
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
           df.source_node = px.pod_id_to_node_name(px.pod_name_to_pod_id(df.source_pod))
           df.source_deployment = remove_ns_prefix(px.pod_name_to_deployment_name(df.source_pod))
-          df.source_service = remove_ns_prefix(df.source_service)
-          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_service = px.Service(remove_ns_prefix(df.source_service))
+          df.destination_service = px.Service(remove_ns_prefix(df.destination_service))
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           df.destination_deployment = remove_ns_prefix(df.destination_deployment)
@@ -1373,7 +1373,7 @@ presetScripts:
           return px.replace('[a-z0-9\-]*/', column, '')
       df.pod = remove_ns_prefix(df.pod)
       df.deployment = remove_ns_prefix(df.deployment)
-      df.service = remove_ns_prefix(df.service)
+      df.service = px.Service(remove_ns_prefix(df.service))
       # Before aggregating, output individual requests to drawer.
       # Convert latency from ns units to ms units.
       df.latency = df.latency / (1000 * 1000)
@@ -1509,7 +1509,7 @@ presetScripts:
 
       df.pod = remove_ns_prefix(df.pod)
       df.deployment = remove_ns_prefix(df.deployment)
-      df.service = remove_ns_prefix(df.service)
+      df.service = px.Service(remove_ns_prefix(df.service))
 
       df.start_time = df.time_ - df.latency
       # Before aggregating, output individual requests to drawer.
@@ -1603,8 +1603,8 @@ presetScripts:
 
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-          df.source_service = remove_ns_prefix(df.source_service)
-          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_service = px.Service(remove_ns_prefix(df.source_service))
+          df.destination_service = px.Service(remove_ns_prefix(df.destination_service))
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           return df
@@ -1697,8 +1697,8 @@ presetScripts:
 
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
-          df.source_service = remove_ns_prefix(df.source_service)
-          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_service = px.Service(remove_ns_prefix(df.source_service))
+          df.destination_service = px.Service(remove_ns_prefix(df.destination_service))
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           return df
@@ -1809,8 +1809,8 @@ presetScripts:
           df.source_deployment = px.pod_name_to_deployment_name(df.source_pod)
 
           df.source_deployment = remove_ns_prefix(df.source_deployment)
-          df.source_service = remove_ns_prefix(df.source_service)
-          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_service = px.Service(remove_ns_prefix(df.source_service))
+          df.destination_service = px.Service(remove_ns_prefix(df.destination_service))
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           df.destination_deployment = remove_ns_prefix(df.destination_deployment)
@@ -1932,8 +1932,8 @@ presetScripts:
           df.source_deployment = px.pod_name_to_deployment_name(df.source_pod)
 
           df.source_deployment = remove_ns_prefix(df.source_deployment)
-          df.source_service = remove_ns_prefix(df.source_service)
-          df.destination_service = remove_ns_prefix(df.destination_service)
+          df.source_service = px.Service(remove_ns_prefix(df.source_service))
+          df.destination_service = px.Service(remove_ns_prefix(df.destination_service))
           df.source_pod = remove_ns_prefix(df.source_pod)
           df.destination_pod = remove_ns_prefix(df.destination_pod)
           df.destination_deployment = remove_ns_prefix(df.destination_deployment)
