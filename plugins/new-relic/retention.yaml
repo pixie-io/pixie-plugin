@@ -1568,18 +1568,6 @@ presetScripts:
       #px:set max_output_rows_per_table=500
       import px
 
-      def cql_opname(df, input_col_name, output_col_name):
-          df[output_col_name] = 'Unknown'
-          df[output_col_name] = px.select(df[input_col_name]==1, 'Startup', df[output_col_name])
-          df[output_col_name] = px.select(df[input_col_name]==5, 'Options', df[output_col_name])
-          df[output_col_name] = px.select(df[input_col_name]==7, 'Query', df[output_col_name])
-          df[output_col_name] = px.select(df[input_col_name]==9, 'Prepare', df[output_col_name])
-          df[output_col_name] = px.select(df[input_col_name]==10, 'Execute', df[output_col_name])
-          df[output_col_name] = px.select(df[input_col_name]==11, 'Register', df[output_col_name])
-          df[output_col_name] = px.select(df[input_col_name]==13, 'Batch', df[output_col_name])
-          df[output_col_name] = px.select(df[input_col_name]==15, 'AuthResponse', df[output_col_name])
-          return df
-
       def remove_ns_prefix(column):
           return px.replace('[a-z0-9\-]*/', column, '')
 
@@ -1616,7 +1604,7 @@ presetScripts:
       df.latency = df.latency / (1000 * 1000)
       df.req_bytes = px.length(df.req_body)
       df.resp_bytes = px.length(df.resp_body)
-      df = cql_opname(df, 'req_op', 'req_cmd')
+      df.req_cmd = px.cql_opcode_name(df.req_op)
 
       df.pixie = 'pixie'
       df.cluster_id = px.vizier_id()
@@ -1661,18 +1649,6 @@ presetScripts:
     script: |
       #px:set max_output_rows_per_table=10000
       import px
-
-      def cql_opname(df, input_col_name, output_col_name):
-          df[output_col_name] = 'Unknown'
-          df[output_col_name] = px.select(df[input_col_name]==1, 'Startup', df[output_col_name])
-          df[output_col_name] = px.select(df[input_col_name]==5, 'Options', df[output_col_name])
-          df[output_col_name] = px.select(df[input_col_name]==7, 'Query', df[output_col_name])
-          df[output_col_name] = px.select(df[input_col_name]==9, 'Prepare', df[output_col_name])
-          df[output_col_name] = px.select(df[input_col_name]==10, 'Execute', df[output_col_name])
-          df[output_col_name] = px.select(df[input_col_name]==11, 'Register', df[output_col_name])
-          df[output_col_name] = px.select(df[input_col_name]==13, 'Batch', df[output_col_name])
-          df[output_col_name] = px.select(df[input_col_name]==15, 'AuthResponse', df[output_col_name])
-          return df
 
       def remove_ns_prefix(column):
           return px.replace('[a-z0-9\-]*/', column, '')
@@ -1719,7 +1695,7 @@ presetScripts:
           req_bytes=('req_bytes', px.sum),
           resp_bytes=('resp_bytes', px.sum),
       )
-      df = cql_opname(df, 'req_op', 'req_cmd')
+      df.req_cmd = px.cql_opcode_name(df.req_op)
 
       df.pixie = 'pixie'
       df.cluster_id = px.vizier_id()
