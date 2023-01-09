@@ -1160,12 +1160,6 @@ presetScripts:
           'k8s.deployment.name': df.source_deployment,
           'k8s.namespace.name': df.source_namespace,
           'k8s.node.name': df.source_node,
-          'redis.service.name': df.destination_service,
-          'redis.pod.name': df.destination_pod,
-          'redis.node.name': df.destination_node,
-          'redis.deployment.name': df.destination_deployment,
-          'redis.namespace.name': df.destination_namespace,
-          'redis.req_cmd': df.req_cmd,
           'k8s.cluster.name': df.cluster_name,
           'px.cluster.id': df.cluster_id,
           'instrumentation.provider': df.pixie,
@@ -1178,6 +1172,29 @@ presetScripts:
             end_time=df.time_,
             kind=px.otel.trace.SPAN_KIND_SERVER,
             attributes={
+              'redis.service.name': df.destination_service,
+              'redis.pod.name': df.destination_pod,
+              'redis.node.name': df.destination_node,
+              'redis.deployment.name': df.destination_deployment,
+              'redis.namespace.name': df.destination_namespace,
+              'redis.req_cmd': df.req_cmd,
+              'redis.req_bytes': df.req_bytes,
+              'redis.resp_bytes': df.resp_bytes,
+              'redis.resp_latency': df.latency,
+              'redis.req_args': df.req_args,
+              'redis.resp': df.resp,
+            },
+          ),
+          px.otel.trace.Span(
+            name=df.req_cmd,
+            start_time=df.start_time,
+            end_time=df.time_,
+            kind=px.otel.trace.SPAN_KIND_CLIENT,
+            attributes={
+              'redis.pod.name': df.destination_pod,
+              'redis.node.name': df.destination_node,
+              'redis.deployment.name': df.destination_deployment,
+              'redis.req_cmd': df.req_cmd,
               'redis.req_bytes': df.req_bytes,
               'redis.resp_bytes': df.resp_bytes,
               'redis.resp_latency': df.latency,
@@ -1618,6 +1635,10 @@ presetScripts:
       df.resp_bytes = px.length(df.resp_body)
       df = cql_opname(df, 'req_op', 'req_cmd')
 
+      # Work-around for a missing normalize_cql function.
+      df.query_struct = px.normalize_pgsql(df.req_body, df.req_cmd)
+      df.query = px.select(px.pluck(df.query_struct, 'error') == '', px.pluck(df.query_struct, 'query'), df.req_cmd)
+
       df.pixie = 'pixie'
       df.cluster_id = px.vizier_id()
       df.cluster_name = px.vizier_name()
@@ -1629,16 +1650,6 @@ presetScripts:
             'service.name': df.source_service,
             'service.instance.id': df.source_pod,
             'k8s.namespace.name': df.source_namespace,
-            'cassandra.service.name': df.destination_service,
-            'cassandra.pod.name': df.destination_pod,
-            'cassandra.namespace.name': df.destination_namespace,
-            'cassandra.req_cmd': df.req_cmd,
-            'cassandra.req_body': df.req_body,
-            'cassandra.req_bytes': df.req_bytes,
-            'cassandra.resp_cmd': df.resp_op,
-            'cassandra.resp_body': df.resp_body,
-            'cassandra.resp_bytes': df.resp_bytes,
-            'cassandra.resp_latency': df.latency,
             'k8s.cluster.name': df.cluster_name,
             'px.cluster.id': df.cluster_id,
             'instrumentation.provider': df.pixie,
@@ -1650,6 +1661,25 @@ presetScripts:
               start_time=df.start_time,
               end_time=df.time_,
               kind=px.otel.trace.SPAN_KIND_SERVER,
+              attributes={
+                'cassandra.service.name': df.destination_service,
+                'cassandra.pod.name': df.destination_pod,
+                'cassandra.namespace.name': df.destination_namespace,
+                'cassandra.req_cmd': df.req_cmd,
+                'cassandra.query': df.query,
+                'cassandra.req_body': df.req_body,
+                'cassandra.req_bytes': df.req_bytes,
+                'cassandra.resp_cmd': df.resp_op,
+                'cassandra.resp_body': df.resp_body,
+                'cassandra.resp_bytes': df.resp_bytes,
+                'cassandra.resp_latency': df.latency,
+              }
+            ),
+            px.otel.trace.Span(
+              name=df.query,
+              start_time=df.start_time,
+              end_time=df.time_,
+              kind=px.otel.trace.SPAN_KIND_CLIENT,
             ),
           ],
         ),
