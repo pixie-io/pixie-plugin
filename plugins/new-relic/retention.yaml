@@ -1152,6 +1152,7 @@ presetScripts:
       df.cluster_id = px.vizier_id()
       df.cluster_name = px.vizier_name()
       df.db_system = 'redis'
+      df.has_error = px.substring(df.resp, 0, 1) == '-'
 
       px.export(df, px.otel.Data(
         resource={
@@ -1183,6 +1184,7 @@ presetScripts:
               'redis.resp_latency': df.latency,
               'redis.req_args': df.req_args,
               'redis.resp': df.resp,
+              'redis.has_error': df.has_error,
             },
           ),
           px.otel.trace.Span(
@@ -1200,6 +1202,7 @@ presetScripts:
               'redis.resp_latency': df.latency,
               'redis.req_args': df.req_args,
               'redis.resp': df.resp,
+              'redis.has_error': df.has_error,
             },
           )
         ]
@@ -1256,7 +1259,9 @@ presetScripts:
       df.latency = df.latency / (1000 * 1000)
       df.req_bytes = px.length(df.req_args)
       df.resp_bytes = px.length(df.resp)
-      df = df.groupby(['req_cmd', 'source_pod', 'source_service', 'source_namespace', 'source_deployment', 'source_node', 'destination_pod', 'destination_node', 'destination_deployment','destination_service', 'destination_namespace']).agg(
+      # Error bodies are prefixed with a '-'.
+      df.has_error = px.substring(df.resp, 0, 1) == '-'
+      df = df.groupby(['req_cmd', 'source_pod', 'source_service', 'source_namespace', 'source_deployment', 'source_node', 'destination_pod', 'destination_node', 'destination_deployment','destination_service', 'destination_namespace', 'has_error']).agg(
           latency_count=('latency', px.count),
           latency_min=('latency', px.min),
           latency_max=('latency', px.max),
@@ -1284,6 +1289,7 @@ presetScripts:
           'redis.deployment.name': df.destination_deployment,
           'redis.namespace.name': df.destination_namespace,
           'redis.req_cmd': df.req_cmd,
+          'redis.has_error': df.has_error,
           'k8s.cluster.name': df.cluster_name,
           'px.cluster.id': df.cluster_id,
           'instrumentation.provider': df.pixie,
