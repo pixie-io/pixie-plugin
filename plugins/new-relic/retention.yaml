@@ -34,9 +34,7 @@ presetScripts:
           df.destination_deployment = px.select(df.is_server_tracing, df.deployment, df.ra_deployment)
 
           df.source_service = px.pod_name_to_service_name(df.source_pod)
-          df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
           df.destination_service = px.pod_name_to_service_name(df.destination_pod)
-          df.destination_service = px.select(df.destination_service != '', df.destination_service, df.destination_pod)
 
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
@@ -54,7 +52,7 @@ presetScripts:
       df = add_source_dest_columns(df)
 
       df.latency = df.latency / (1000 * 1000)
-      df = df.groupby(['resp_status', 'req_path', 'source_pod', 'source_container', 'source_deployment', 'source_node', 'source_service', 'source_namespace']).agg(
+      df = df.groupby(['resp_status', 'req_path', 'destination_pod', 'destination_deployment', 'destination_node', 'destination_service', 'destination_namespace']).agg(
           latency_min=('latency', px.min),
           latency_max=('latency', px.max),
           latency_sum=('latency', px.sum),
@@ -69,12 +67,12 @@ presetScripts:
       px.export(
         df, px.otel.Data(
           resource={
-            'service.name': df.source_service,
-            'service.instance.id': df.source_pod,
-            'k8s.container.name': df.source_container,
-            'k8s.deployment.name': df.source_deployment,
-            'k8s.namespace.name': df.source_namespace,
-            'k8s.node.name': df.source_node,
+            'service.name': df.destination_service,
+            'service.instance.id': df.destination_pod,
+            'k8s.pod.name': df.destination_pod,
+            'k8s.deployment.name': df.destination_deployment,
+            'k8s.namespace.name': df.destination_namespace,
+            'k8s.node.name': df.destination_node,
             'px.cluster.id': df.cluster_id,
             'k8s.cluster.name': df.cluster_name,
             'instrumentation.provider': df.pixie,
@@ -127,9 +125,7 @@ presetScripts:
           df.destination_deployment = px.select(df.is_server_tracing, df.deployment, df.ra_deployment)
 
           df.source_service = px.pod_name_to_service_name(df.source_pod)
-          df.source_service = px.select(df.source_service != '', df.source_service, df.source_pod)
           df.destination_service = px.pod_name_to_service_name(df.destination_pod)
-          df.destination_service = px.select(df.destination_service != '', df.destination_service, df.destination_pod)
 
           df.destination_namespace = px.pod_name_to_namespace(df.destination_pod)
           df.source_namespace = px.pod_name_to_namespace(df.source_pod)
@@ -168,13 +164,14 @@ presetScripts:
       px.export(
         df, px.otel.Data(
           resource={
-            'service.name': df.source_service,
-            'service.instance.id': df.source_pod,
-            'k8s.container.name': df.source_container,
-            'k8s.pod.name': df.source_pod,
-            'k8s.deployment.name': df.source_deployment,
-            'k8s.namespace.name': df.source_namespace,
-            'k8s.node.name': df.source_node,
+            # While other Pixie entities use `service.name=source_service`,
+            # the Services-OpenTelemetry entity is set up to only show clients so we use `service.name=destination_service`.
+            'service.name': df.destination_service,
+            'service.instance.id': df.destination_pod,
+            'k8s.pod.name': df.destination_pod,
+            'k8s.deployment.name': df.destination_deployment,
+            'k8s.namespace.name': df.destination_namespace,
+            'k8s.node.name': df.destination_node,
             'px.cluster.id': df.cluster_id,
             'k8s.cluster.name': df.cluster_name,
             'instrumentation.provider': df.pixie,
@@ -190,8 +187,11 @@ presetScripts:
               kind=px.otel.trace.SPAN_KIND_SERVER,
               attributes={
                 # NOTE: the integration handles splitting of services.
-                'parent.service.name': df.destination_service,
-                'parent.k8s.pod.name': df.destination_pod,
+                'parent.namespace.name': df.source_namespace,
+                'parent.service.name': df.source_service,
+                'parent.deployment.name': df.source_deployment,
+                'parent.node.name': df.source_node,
+                'parent.k8s.pod.name': df.source_pod,
                 'http.method': df.req_method,
                 'http.url': df.req_url,
                 'http.target': df.req_path,
