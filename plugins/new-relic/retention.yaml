@@ -198,6 +198,8 @@ presetScripts:
                 'http.host': df.host,
                 'http.status_code': df.resp_status,
                 'http.user_agent': df.user_agent,
+                'http.req_headers': df.req_headers,
+                'http.resp_headers': df.resp_headers,
               },
             ),
           ],
