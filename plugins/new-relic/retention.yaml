@@ -7,7 +7,7 @@ presetScripts:
   - name: "HTTP Metrics"
     description: "This script sends HTTP metrics to New Relic's OTel endpoint."
     script: |
-      #px:set max_output_rows_per_table=30000
+      #px:set max_output_rows_per_table=10000
 
       import px
 
@@ -94,11 +94,11 @@ presetScripts:
           )],
         ),
       )
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
   - name: "HTTP Spans"
     description: "This script sends HTTP span events (distributed tracing) to New Relic's OTel endpoint."
     script: |
-      #px:set max_output_rows_per_table=5000
+      #px:set max_output_rows_per_table=1500
 
       import px
 
@@ -205,11 +205,11 @@ presetScripts:
           ],
         ),
       )
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
   - name: "JVM Metrics"
     description: "This script sends JVM metrics to New Relic's OTel endpoint."
     script: |
-      #px:set max_output_rows_per_table=30000
+      #px:set max_output_rows_per_table=10000
 
       import px
 
@@ -315,11 +315,11 @@ presetScripts:
           ],
         ),
       )
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
   - name: "PostgreSQL Spans"
     description: "This script generates span events from queries to PostgreSQL databases and sends them to New Relic's OTel endpoint."
     script: |
-      #px:set max_output_rows_per_table=1500
+      #px:set max_output_rows_per_table=500
       import px
 
       def remove_ns_prefix(column):
@@ -413,11 +413,11 @@ presetScripts:
           ],
         ),
       )
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
   - name: "PostgreSQL Metrics"
     description: "This script sends PostgreSQL metrics to New Relic's OTel endpoint."
     script: |
-      #px:set max_output_rows_per_table=30000
+      #px:set max_output_rows_per_table=10000
 
       import px
 
@@ -511,11 +511,11 @@ presetScripts:
           ]
         ),
       )
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
   - name: "MySQL Spans"
     description: "This script generates span events from queries to MySQL databases and sends them to New Relic's OTel endpoint."
     script: |
-      #px:set max_output_rows_per_table=1500
+      #px:set max_output_rows_per_table=500
 
       import px
 
@@ -631,11 +631,11 @@ presetScripts:
           ],
         ),
       )
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
   - name: "MySQL Metrics"
     description: "This script sends MySQL metrics to New Relic's OTel endpoint."
     script: |
-      #px:set max_output_rows_per_table=30000
+      #px:set max_output_rows_per_table=10000
 
       import px
 
@@ -749,11 +749,11 @@ presetScripts:
         ]
         ),
       )
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
   - name: "Kafka Metrics"
     description: "This script generates metrics from Kafka and sends them to New Relic's OTel endpoint."
     defaultDisabled: false
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
     script: |
       import px
 
@@ -966,7 +966,7 @@ presetScripts:
   - name: "Kafka Spans"
     description: "This script samples Kafka Spans and sends them to New Relic's OTel endpoint."
     defaultDisabled: false
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
     script: |
       import px
 
@@ -1121,7 +1121,7 @@ presetScripts:
       df.span_name = df.req_cmd + '/' + df.topic_name
 
       # Restrict number of results.
-      df = df.head(4500)
+      df = df.head(1500)
       px.export(
           df,
           px.otel.Data(
@@ -1161,9 +1161,9 @@ presetScripts:
   - name: Redis Spans
     description: This script generates OpenTelemetry spans for Redis commands.
     defaultDisabled: false
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
     script: |
-      #px:set max_output_rows_per_table=1500
+      #px:set max_output_rows_per_table=500
       import px
 
       def remove_ns_prefix(column):
@@ -1274,9 +1274,9 @@ presetScripts:
   - name: Redis Metrics
     description: This script exports Redis metrics to New Relic.
     defaultDisabled: false
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
     script: |
-      #px:set max_output_rows_per_table=30000
+      #px:set max_output_rows_per_table=10000
       import px
 
       def remove_ns_prefix(column):
@@ -1385,9 +1385,9 @@ presetScripts:
   - name: "DNS Metrics"
     description: "This script calculates DNS request metrics"
     defaultDisabled: false
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
     script: |
-      #px:set max_output_rows_per_table=30000
+      #px:set max_output_rows_per_table=10000
       import px
 
       df = px.DataFrame('dns_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
@@ -1493,9 +1493,9 @@ presetScripts:
   - name: "DNS Spans"
     description: "Exports a sample of DNS Spans from Pixie data"
     defaultDisabled: false
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
     script: |
-      #px:set max_output_rows_per_table=1500
+      #px:set max_output_rows_per_table=500
       import px
 
       df = px.DataFrame('dns_events', start_time=px.plugin.start_time, end_time=px.plugin.end_time)
@@ -1602,9 +1602,9 @@ presetScripts:
   - name: Cassandra Spans
     description: This script generates OpenTelemetry spans for Cassandra span events.
     defaultDisabled: false
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
     script: |
-      #px:set max_output_rows_per_table=1500
+      #px:set max_output_rows_per_table=500
       import px
 
       def remove_ns_prefix(column):
@@ -1697,9 +1697,9 @@ presetScripts:
   - name: Cassandra Metrics
     description: This script exports Cassandra metrics to New Relic.
     defaultDisabled: false
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
     script: |
-      #px:set max_output_rows_per_table=30000
+      #px:set max_output_rows_per_table=10000
       import px
 
       def remove_ns_prefix(column):
@@ -1795,9 +1795,9 @@ presetScripts:
       )
   - name: AMQP Spans
     defaultDisabled: false
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
     script: |-
-      #px:set max_output_rows_per_table=1500
+      #px:set max_output_rows_per_table=500
       import px
 
 
@@ -1918,9 +1918,9 @@ presetScripts:
       )
   - name: AMQP Metrics
     defaultDisabled: false
-    defaultFrequencyS: 30
+    defaultFrequencyS: 10
     script: |-
-      #px:set max_output_rows_per_table=30000
+      #px:set max_output_rows_per_table=10000
       import px
 
 
